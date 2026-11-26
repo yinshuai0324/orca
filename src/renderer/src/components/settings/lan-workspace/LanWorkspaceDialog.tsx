@@ -228,7 +228,7 @@ export default function LanWorkspaceDialog(): React.JSX.Element | null {
           <DialogDescription>
             {t(
               'lanWorkspace.description',
-              'Connect to Codex on a Linux host and preview its changes on your Mac.'
+              'Connect to Codex on a Mac or Linux host and preview its changes on this Mac.'
             )}
           </DialogDescription>
         </DialogHeader>

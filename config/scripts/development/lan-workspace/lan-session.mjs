@@ -6,68 +6,10 @@ import { isAbsolute } from 'node:path'
 import { createInterface } from 'node:readline'
 import { setTimeout as delay } from 'node:timers/promises'
 import { serveProjectFiles } from './project-sftp.mjs'
+import { prepareRemoteMount, readRemoteMount } from './lan-workspace-mount.mjs'
 import { quotePosixShell } from '../../../../src/shared/shell/launch/shell-argument-quoting.ts'
 
 const { Client } = createRequire(import.meta.url)('ssh2')
-const remoteToolPath =
-  'export PATH="$HOME/.local/bin:$HOME/.bun/bin:$PATH:/usr/local/bin:/usr/bin:/bin:/usr/local/sbin:/usr/sbin:/sbin"'
-
-const remoteMountCheck = `
-orca_mounted() {
-  if command -v mountpoint >/dev/null 2>&1; then
-    mountpoint -q -- "$1"
-    return
-  fi
-  while IFS=' ' read -r mount_id parent_id device root mount_path options; do
-    if [ "$mount_path" = "$1" ]; then
-      return 0
-    fi
-  done < /proc/self/mountinfo
-  return 1
-}
-`
-
-const remotePrerequisites = [
-  {
-    check: 'command -v sshfs >/dev/null 2>&1',
-    status: 41,
-    reason: 'missing-sshfs',
-    message: 'SSH connected, but sshfs was not found in the remote PATH.'
-  },
-  {
-    check: 'test -c /dev/fuse',
-    status: 42,
-    reason: 'missing-fuse-device',
-    message: 'SSH connected, but the remote session has no /dev/fuse device.'
-  },
-  {
-    check: '(command -v fusermount3 >/dev/null 2>&1 || command -v fusermount >/dev/null 2>&1)',
-    status: 43,
-    reason: 'missing-unmount-helper',
-    message: 'SSH connected, but neither fusermount3 nor fusermount was found in the remote PATH.'
-  },
-  {
-    check: '(command -v mountpoint >/dev/null 2>&1 || test -r /proc/self/mountinfo)',
-    status: 44,
-    reason: 'missing-mount-status',
-    message: 'SSH connected, but the remote session cannot check which directories are mounted.'
-  },
-  {
-    check: 'command -v codex >/dev/null 2>&1',
-    status: 45,
-    reason: 'missing-codex',
-    message: 'SSH connected, but the Codex CLI was not found in the remote PATH.'
-  }
-]
-
-class LanWorkspacePrerequisiteError extends Error {
-  constructor({ reason, message }) {
-    super(message)
-    this.name = 'LanWorkspacePrerequisiteError'
-    this.reason = reason
-  }
-}
-
 const localDevInstructions =
   'Edit the files in the current workspace. This is a live mount of my Mac project. ' +
   'Leave dependency installation, build, dev server startup and browser preview to the Mac client.'
@@ -164,7 +106,7 @@ export async function validateProject(config) {
 
 export class LanSession {
   #ssh = new Client()
-  #mountPath
+  #mount
   #mountChannel
   #closed = false
   #mounted = false
@@ -212,30 +154,12 @@ export class LanSession {
       })
     })
 
-    const prepared = await runRemote(
-      this.#ssh,
-      `
-      ${remoteToolPath}
-      ${remotePrerequisites.map(({ check, status }) => `${check} || exit ${status}`).join('\n')}
-      mktemp -d /tmp/orca-workspace.XXXXXXXXXX
-    `
-    )
-    const prerequisite = remotePrerequisites.find(({ status }) => status === prepared.code)
-    if (prerequisite) {
-      throw new LanWorkspacePrerequisiteError(prerequisite)
-    }
-    if (prepared.code !== 0 || !/^\/tmp\/orca-workspace\.[A-Za-z0-9]+$/.test(prepared.stdout)) {
-      throw new Error(prepared.stderr || 'Could not prepare the remote mount directory.')
-    }
-    this.#mountPath = prepared.stdout
-    const quotedMountPath = quotePosixShell(this.#mountPath)
+    const mount = readRemoteMount(await runRemote(this.#ssh, prepareRemoteMount))
+    this.#mount = mount
     let mountFailure
     let mountStderr = ''
     this.#mountChannel = await new Promise((resolve, reject) => {
-      this.#ssh.exec(
-        `${remoteToolPath}; exec sshfs -f -o passive,dir_cache=no :/ ${quotedMountPath}`,
-        (error, channel) => (error ? reject(error) : resolve(channel))
-      )
+      this.#ssh.exec(mount.start, (error, channel) => (error ? reject(error) : resolve(channel)))
     })
     const channel = this.#mountChannel
     channel.stderr.on('data', (chunk) => {
@@ -262,22 +186,12 @@ export class LanSession {
       if (mountFailure) {
         throw mountFailure
       }
-      if (
-        (
-          await runRemote(
-            this.#ssh,
-            `${remoteToolPath}
-${remoteMountCheck}
-orca_mounted ${quotedMountPath}`,
-            { timeout: 3_000 }
-          )
-        ).code === 0
-      ) {
+      if ((await runRemote(this.#ssh, mount.check, { timeout: 3_000 })).code === 0) {
         if (mountFailure || this.#closed) {
           throw mountFailure || new Error('SSH connection closed.')
         }
         this.#mounted = true
-        return this.#mountPath
+        return mount.path
       }
       await delay(200)
     }
@@ -293,10 +207,9 @@ orca_mounted ${quotedMountPath}`,
     }
     this.#running = true
     try {
-      const mount = quotePosixShell(this.#mountPath)
       const thread = this.#threadId ? ` resume ${quotePosixShell(this.#threadId)}` : ''
       const command =
-        `${remoteToolPath}\n${remoteMountCheck}\norca_mounted ${mount} && cd -- ${mount} && ` +
+        `${this.#mount.taskDirectory} && ` +
         `exec codex --ask-for-approval never -c 'sandbox_mode="workspace-write"' exec${thread} --json --skip-git-repo-check -`
       let completed = false
       let turnError
@@ -342,21 +255,8 @@ orca_mounted ${quotedMountPath}`,
     }
     this.#closed = true
     this.#mounted = false
-    if (this.#mountPath) {
-      const mount = quotePosixShell(this.#mountPath)
-      await runRemote(
-        this.#ssh,
-        `
-        ${remoteToolPath}
-        ${remoteMountCheck}
-        if orca_mounted ${mount}; then
-          unmount=$(command -v fusermount3 || command -v fusermount)
-          "$unmount" -uz -- ${mount} || exit 1
-        fi
-        rmdir -- ${mount}
-      `,
-        { timeout: 3_000 }
-      ).catch(() => {})
+    if (this.#mount) {
+      await runRemote(this.#ssh, this.#mount.cleanup, { timeout: 3_000 }).catch(() => {})
     }
     if (this.#mountChannel) {
       closeSshChannel(this.#mountChannel)

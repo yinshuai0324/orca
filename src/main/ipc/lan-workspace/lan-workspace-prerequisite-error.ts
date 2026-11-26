@@ -38,6 +38,20 @@ export function translateLanWorkspacePrerequisiteError(error: unknown): unknown 
           'SSH connected. The remote session has neither mountpoint nor a readable /proc/self/mountinfo.'
         )
       )
+    case 'missing-macfuse':
+      return new Error(
+        translateMain(
+          'lanWorkspace.missingMacFuse',
+          'SSH connected. Install macFUSE on the remote Mac with brew install --cask sshfs-mac.'
+        )
+      )
+    case 'unsupported-os':
+      return new Error(
+        translateMain(
+          'lanWorkspace.unsupportedRemoteOs',
+          'LAN workspaces support remote macOS and Linux hosts.'
+        )
+      )
     case 'missing-codex':
       return new Error(
         translateMain(

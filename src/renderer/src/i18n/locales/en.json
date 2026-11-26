@@ -2197,7 +2197,7 @@
     "connect": "Connect and mount",
     "connecting": "Connecting and mounting…",
     "conversation": "Remote Codex conversation",
-    "description": "Connect to Codex on a Linux host and preview its changes on your Mac.",
+    "description": "Connect to Codex on a Mac or Linux host and preview its changes on this Mac.",
     "devLog": "Mac development server log",
     "directory": "Mac project folder",
     "disconnect": "Disconnect",
@@ -2221,7 +2221,9 @@
     "missingFuseDevice": "SSH connected. The remote session cannot see /dev/fuse, which SSHFS needs to mount the project.",
     "missingUnmountHelper": "SSH connected. The remote session could not find fusermount3 or fusermount to clean up the mount.",
     "missingMountStatus": "SSH connected. The remote session has neither mountpoint nor a readable /proc/self/mountinfo.",
-    "missingCodex": "SSH connected. The remote session could not find the Codex CLI in its PATH."
+    "missingCodex": "SSH connected. The remote session could not find the Codex CLI in its PATH.",
+    "missingMacFuse": "SSH connected. Install macFUSE on the remote Mac with brew install --cask sshfs-mac.",
+    "unsupportedRemoteOs": "LAN workspaces support remote macOS and Linux hosts."
   },
   "menu": {
     "checkForUpdates": "Check for Updates...",

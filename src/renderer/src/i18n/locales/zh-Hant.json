@@ -1898,7 +1898,7 @@
     "connect": "連線並掛載",
     "connecting": "正在連線並掛載…",
     "conversation": "遠端 Codex 對話",
-    "description": "連線至 Linux 主機上的 Codex，並在這台 Mac 上預覽變更。",
+    "description": "連線至遠端 Mac 或 Linux 主機上的 Codex，並在這台 Mac 上預覽變更。",
     "devLog": "Mac 開發伺服器記錄",
     "directory": "Mac 專案資料夾",
     "disconnect": "中斷連線",
@@ -1922,7 +1922,9 @@
     "missingFuseDevice": "SSH 已連線。遠端工作階段看不到 /dev/fuse，SSHFS 需要這個裝置才能掛載專案。",
     "missingUnmountHelper": "SSH 已連線。遠端工作階段找不到用於卸載的 fusermount3 或 fusermount。",
     "missingMountStatus": "SSH 已連線。遠端工作階段找不到 mountpoint，也無法讀取 /proc/self/mountinfo。",
-    "missingCodex": "SSH 已連線。遠端工作階段的 PATH 中找不到 Codex CLI。"
+    "missingCodex": "SSH 已連線。遠端工作階段的 PATH 中找不到 Codex CLI。",
+    "missingMacFuse": "SSH 已連線。請在遠端 Mac 執行 brew install --cask sshfs-mac 安裝 macFUSE。",
+    "unsupportedRemoteOs": "區域網路工作區支援遠端 macOS 和 Linux 主機。"
   },
   "menu": {
     "checkForUpdates": "檢查更新...",
