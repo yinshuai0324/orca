@@ -2216,7 +2216,12 @@
     "task": "Task for remote Codex",
     "trustAndConnect": "Trust and connect",
     "username": "SSH username",
-    "you": "You"
+    "you": "You",
+    "missingSshfs": "SSH connected. The remote session could not find sshfs in its PATH.",
+    "missingFuseDevice": "SSH connected. The remote session cannot see /dev/fuse, which SSHFS needs to mount the project.",
+    "missingUnmountHelper": "SSH connected. The remote session could not find fusermount3 or fusermount to clean up the mount.",
+    "missingMountStatus": "SSH connected. The remote session has neither mountpoint nor a readable /proc/self/mountinfo.",
+    "missingCodex": "SSH connected. The remote session could not find the Codex CLI in its PATH."
   },
   "menu": {
     "checkForUpdates": "Check for Updates...",

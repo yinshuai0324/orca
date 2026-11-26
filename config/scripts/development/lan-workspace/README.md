@@ -6,6 +6,6 @@
 2. 在窗口里选择 Mac 项目目录，填写本机启动命令和预览地址，然后点击 **连接并挂载**。
 3. 发一条修改任务。远程 Codex 成功完成后，客户端启动或复用 Mac 开发服务，端口就绪后在 Mac 的默认浏览器打开页面。
 
-远程端需要已有的 SSH 服务、SSHFS/FUSE、`mountpoint`、`fusermount3` 或 `fusermount`，以及已登录的 Codex CLI。客户端通过已认证的 SSH 会话使用 SSHFS 的 passive 模式。它为当前会话分配临时挂载目录，断开时卸载。连接过程保留在用户权限内，开发依赖和测试服务由 Mac 运行。
+远程端需要已有的 SSH 服务、SSHFS/FUSE（SSH 会话可见 `/dev/fuse`）、`fusermount3` 或 `fusermount`，以及已登录的 Codex CLI。挂载状态通过 `mountpoint` 或 Linux 的 `/proc/self/mountinfo` 检查。客户端通过已认证的 SSH 会话使用 SSHFS 的 passive 模式。它为当前会话分配临时挂载目录，断开时卸载。连接过程保留在用户权限内，开发依赖和测试服务由 Mac 运行。
 
 弹窗管理一个项目及一段 Codex 会话，关闭弹窗时断开。连接成功后保留项目与主机设置，SSH 密码只在连接时使用。文件服务只暴露所选目录，跳过环境文件、Git 元数据、`node_modules`、符号链接和硬链接。

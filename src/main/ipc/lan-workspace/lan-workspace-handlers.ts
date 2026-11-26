@@ -9,6 +9,7 @@ import {
 import { translateMain } from '../../i18n/main-i18n'
 import { isBackgroundLaunch } from '../../window/activation/foreground-activation-policy'
 import { isTrustedUIRenderer } from '../ui'
+import { translateLanWorkspacePrerequisiteError } from './lan-workspace-prerequisite-error'
 
 type LanWorkspaceController = {
   connect(input: LanWorkspaceConnection): Promise<string>
@@ -123,7 +124,9 @@ export function registerLanWorkspaceHandlers(): void {
         controller = session
       }
     }
-    return controller.connect(input)
+    return controller.connect(input).catch((error: unknown) => {
+      throw translateLanWorkspacePrerequisiteError(error)
+    })
   })
   ipcMain.handle(channels.turn, async (event, prompt: string) => {
     const controller = controllers.get(requireWindow(event))

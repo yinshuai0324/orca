@@ -3,6 +3,7 @@ import { Loader2 } from 'lucide-react'
 import type { LanWorkspaceConnection } from '../../../../../shared/remote-runtime/lan-workspace/lan-workspace-api'
 import { useAppStore } from '@/store/index'
 import { useTranslate } from '@/i18n/use-translate'
+import { readIpcErrorDetail } from '@/runtime/errors/ipc-error'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -137,7 +138,7 @@ export default function LanWorkspaceDialog(): React.JSX.Element | null {
     setDraft((previous) => ({ ...previous, [field]: value }))
 
   const showError = (failure: unknown): void =>
-    setError(failure instanceof Error ? failure.message : String(failure))
+    setError(readIpcErrorDetail(failure) ?? String(failure))
 
   const connect = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault()

@@ -1532,7 +1532,12 @@
     "task": "发给远程 Codex 的任务",
     "trustAndConnect": "信任并连接",
     "username": "SSH 用户名",
-    "you": "你"
+    "you": "你",
+    "missingSshfs": "SSH 已连接。远程会话的 PATH 中找不到 sshfs。",
+    "missingFuseDevice": "SSH 已连接。远程会话看不到 /dev/fuse，SSHFS 需要这个设备才能挂载项目。",
+    "missingUnmountHelper": "SSH 已连接。远程会话找不到用于卸载的 fusermount3 或 fusermount。",
+    "missingMountStatus": "SSH 已连接。远程会话找不到 mountpoint，也无法读取 /proc/self/mountinfo。",
+    "missingCodex": "SSH 已连接。远程会话的 PATH 中找不到 Codex CLI。"
   },
   "menu": {
     "checkForUpdates": "检查更新...",
