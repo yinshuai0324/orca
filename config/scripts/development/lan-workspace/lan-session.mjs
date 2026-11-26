@@ -7,7 +7,7 @@ import { createInterface } from 'node:readline'
 import { setTimeout as delay } from 'node:timers/promises'
 import { serveProjectFiles } from './project-sftp.mjs'
 import { prepareRemoteMount, readRemoteMount } from './lan-workspace-mount.mjs'
-import { quotePosixShell } from '../../../../src/shared/shell/launch/shell-argument-quoting.ts'
+import { discoverRemoteAgents, getRemoteAgent, readRemoteAgents } from './lan-workspace-agent.mjs'
 
 const { Client } = createRequire(import.meta.url)('ssh2')
 const localDevInstructions =
@@ -111,7 +111,8 @@ export class LanSession {
   #closed = false
   #mounted = false
   #running = false
-  #threadId
+  #agents = []
+  #sessions = new Map()
 
   constructor({ verifyHost, onDisconnect = () => {} }) {
     this.verifyHost = verifyHost
@@ -190,27 +191,33 @@ export class LanSession {
         if (mountFailure || this.#closed) {
           throw mountFailure || new Error('SSH connection closed.')
         }
+        const agents = readRemoteAgents(await runRemote(this.#ssh, discoverRemoteAgents))
+        if (mountFailure || this.#closed) {
+          throw mountFailure || new Error('SSH connection closed.')
+        }
+        this.#agents = agents
         this.#mounted = true
-        return mount.path
+        return { path: mount.path, agents }
       }
       await delay(200)
     }
     throw new Error(mountStderr || 'Remote SSHFS mount did not become ready.')
   }
 
-  async runTurn(prompt, onMessage) {
+  async runTurn(agent, prompt, onMessage) {
     if (!this.#mounted || this.#closed || !this.#mountChannel || this.#mountChannel.destroyed) {
       throw new Error('Connect and mount the project first.')
     }
     if (this.#running) {
       throw new Error('Wait for the current turn to finish.')
     }
+    const adapter = getRemoteAgent(agent)
+    if (!adapter || !this.#agents.includes(agent)) {
+      throw new Error('Choose an AI CLI available on the remote host.')
+    }
     this.#running = true
     try {
-      const thread = this.#threadId ? ` resume ${quotePosixShell(this.#threadId)}` : ''
-      const command =
-        `${this.#mount.taskDirectory} && ` +
-        `exec codex --ask-for-approval never -c 'sandbox_mode="workspace-write"' exec${thread} --json --skip-git-repo-check -`
+      const command = `${this.#mount.taskDirectory} && exec ${adapter.command(this.#sessions.get(agent))}`
       let completed = false
       let turnError
       const result = await runRemote(this.#ssh, command, {
@@ -223,26 +230,28 @@ export class LanSession {
           } catch {
             return
           }
-          if (event.type === 'thread.started' && typeof event.thread_id === 'string') {
-            this.#threadId = event.thread_id
-          }
+          const update = adapter.parse(event)
           if (
-            event.type === 'item.completed' &&
-            event.item?.type === 'agent_message' &&
-            typeof event.item.text === 'string'
+            typeof update.sessionId === 'string' &&
+            /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/.test(update.sessionId)
           ) {
-            onMessage(event.item.text)
+            this.#sessions.set(agent, update.sessionId)
           }
-          if (event.type === 'turn.completed') {
+          if (typeof update.answer === 'string' && update.answer) {
+            onMessage(update.answer)
+          }
+          if (update.completed) {
             completed = true
           }
-          if (event.type === 'turn.failed') {
-            turnError = event.error?.message ?? 'Codex reported a failed turn.'
+          if (update.error) {
+            turnError = update.error
           }
         }
       })
       if (!completed || result.code !== 0 || turnError) {
-        throw new Error(turnError || result.stderr || 'Codex did not report a successful turn.')
+        throw new Error(
+          turnError || result.stderr || `${adapter.name} did not report a successful turn.`
+        )
       }
     } finally {
       this.#running = false

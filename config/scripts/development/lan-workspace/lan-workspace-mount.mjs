@@ -46,12 +46,6 @@ const prerequisites = {
       status: 41,
       reason: 'missing-sshfs',
       message: 'SSH connected, but sshfs was not found in the remote PATH.'
-    },
-    {
-      check: 'command -v codex >/dev/null 2>&1',
-      status: 45,
-      reason: 'missing-codex',
-      message: 'SSH connected, but the Codex CLI was not found in the remote PATH.'
     }
   ],
   linux: [

@@ -4,7 +4,9 @@ import { pathToFileURL } from 'node:url'
 import {
   LAN_WORKSPACE_CHANNELS,
   type LanWorkspaceConnection,
-  type LanWorkspaceMessage
+  type LanWorkspaceMessage,
+  type LanWorkspaceMount,
+  type LanWorkspaceTurn
 } from '../../../shared/remote-runtime/lan-workspace/lan-workspace-api'
 import { translateMain } from '../../i18n/main-i18n'
 import { isBackgroundLaunch } from '../../window/activation/foreground-activation-policy'
@@ -12,8 +14,8 @@ import { isTrustedUIRenderer } from '../ui'
 import { translateLanWorkspacePrerequisiteError } from './lan-workspace-prerequisite-error'
 
 type LanWorkspaceController = {
-  connect(input: LanWorkspaceConnection): Promise<string>
-  turn(prompt: string): Promise<void>
+  connect(input: LanWorkspaceConnection): Promise<LanWorkspaceMount>
+  turn(input: LanWorkspaceTurn): Promise<void>
   disconnect(): Promise<void>
 }
 
@@ -128,12 +130,12 @@ export function registerLanWorkspaceHandlers(): void {
       throw translateLanWorkspacePrerequisiteError(error)
     })
   })
-  ipcMain.handle(channels.turn, async (event, prompt: string) => {
+  ipcMain.handle(channels.turn, async (event, input: LanWorkspaceTurn) => {
     const controller = controllers.get(requireWindow(event))
     if (!controller) {
       throw new Error('Connect and mount the project first.')
     }
-    await controller.turn(prompt)
+    await controller.turn(input)
   })
   ipcMain.handle(channels.disconnect, async (event) => {
     await controllers.get(requireWindow(event))?.disconnect()

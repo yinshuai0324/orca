@@ -7,6 +7,20 @@ export const LAN_WORKSPACE_CHANNELS = {
   message: 'lan-workspace:message'
 } as const
 
+export const LAN_WORKSPACE_AGENTS = ['codex', 'claude'] as const
+
+export type LanWorkspaceAgent = (typeof LAN_WORKSPACE_AGENTS)[number]
+
+export type LanWorkspaceMount = {
+  path: string
+  agents: LanWorkspaceAgent[]
+}
+
+export type LanWorkspaceTurn = {
+  agent: LanWorkspaceAgent
+  prompt: string
+}
+
 export type LanWorkspaceConnection = {
   host: string
   username: string
@@ -17,14 +31,15 @@ export type LanWorkspaceConnection = {
 }
 
 export type LanWorkspaceMessage =
-  | { kind: 'assistant' | 'dev'; text: string }
+  | { kind: 'assistant'; agent: LanWorkspaceAgent; text: string }
+  | { kind: 'dev'; text: string }
   | { kind: 'previewing' | 'disconnected' }
 
 export type LanWorkspaceApi = {
   available(): Promise<boolean>
   chooseDirectory(): Promise<string | null>
-  connect(input: LanWorkspaceConnection): Promise<string>
-  turn(prompt: string): Promise<void>
+  connect(input: LanWorkspaceConnection): Promise<LanWorkspaceMount>
+  turn(input: LanWorkspaceTurn): Promise<void>
   disconnect(): Promise<void>
   onMessage(listener: (message: LanWorkspaceMessage) => void): () => void
 }

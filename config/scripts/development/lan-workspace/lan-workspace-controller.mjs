@@ -55,7 +55,8 @@ export function createLanWorkspaceController({ verifyHost, openPreview, emit }) 
     }
   }
 
-  async function turn(prompt) {
+  async function turn(input) {
+    const { agent, prompt } = input ?? {}
     if (
       busy ||
       !session ||
@@ -70,9 +71,9 @@ export function createLanWorkspaceController({ verifyHost, openPreview, emit }) 
     const runningSession = session
     const runningPreview = preview
     try {
-      await runningSession.runTurn(prompt, (text) => {
+      await runningSession.runTurn(agent, prompt, (text) => {
         if (session === runningSession) {
-          emit({ kind: 'assistant', text })
+          emit({ kind: 'assistant', agent, text })
         }
       })
       if (session !== runningSession) {

@@ -11,7 +11,7 @@ export const lanWorkspaceApi: LanWorkspaceApi = {
   available: () => ipcRenderer.invoke(channels.available),
   chooseDirectory: () => ipcRenderer.invoke(channels.chooseDirectory),
   connect: (input) => ipcRenderer.invoke(channels.connect, input),
-  turn: (prompt) => ipcRenderer.invoke(channels.turn, prompt),
+  turn: (input) => ipcRenderer.invoke(channels.turn, input),
   disconnect: () => ipcRenderer.invoke(channels.disconnect),
   onMessage: (listener) => {
     const handler = (_event: Electron.IpcRendererEvent, message: LanWorkspaceMessage): void =>

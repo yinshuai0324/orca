@@ -52,13 +52,6 @@ export function translateLanWorkspacePrerequisiteError(error: unknown): unknown 
           'LAN workspaces support remote macOS and Linux hosts.'
         )
       )
-    case 'missing-codex':
-      return new Error(
-        translateMain(
-          'lanWorkspace.missingCodex',
-          'SSH connected. The remote session could not find the Codex CLI in its PATH.'
-        )
-      )
     default:
       return error
   }

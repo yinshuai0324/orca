@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { Loader2 } from 'lucide-react'
-import type { LanWorkspaceConnection } from '../../../../../shared/remote-runtime/lan-workspace/lan-workspace-api'
+import type {
+  LanWorkspaceAgent,
+  LanWorkspaceConnection,
+  LanWorkspaceMount
+} from '../../../../../shared/remote-runtime/lan-workspace/lan-workspace-api'
 import { useAppStore } from '@/store/index'
 import { useTranslate } from '@/i18n/use-translate'
 import { readIpcErrorDetail } from '@/runtime/errors/ipc-error'
@@ -16,6 +20,13 @@ import {
 import { DialogCancel, DialogDisclosure, DialogError } from '@/components/ui/dialog-parts'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select'
 import { LanWorkspaceConnectionFields } from './LanWorkspaceConnectionFields'
 
 const preferencesKey = 'orca-lan-project'
@@ -67,14 +78,16 @@ function rememberConnection({ password: _password, ...preferences }: LanWorkspac
 }
 
 type Activity = 'connecting' | 'disconnecting' | 'running' | 'previewing'
-type Message = { id: number; author: 'user' | 'assistant'; text: string }
+type Message = { id: number; author: 'user' | LanWorkspaceAgent; text: string }
 
 export default function LanWorkspaceDialog(): React.JSX.Element | null {
   const t = useTranslate()
   const api = window.api.lanWorkspace
   const closeModal = useAppStore((state) => state.closeModal)
   const [draft, setDraft] = useState(readConnectionDraft)
-  const [mount, setMount] = useState<string | null>(null)
+  const [mount, setMount] = useState<LanWorkspaceMount | null>(null)
+  const [selectedAgent, setSelectedAgent] = useState<LanWorkspaceAgent>('codex')
+  const agent = mount?.agents.find((entry) => entry === selectedAgent) ?? mount?.agents[0]
   const [activity, setActivity] = useState<Activity | null>(null)
   const [error, setError] = useState('')
   const [status, setStatus] = useState<'disconnected' | 'preview-ready' | null>(null)
@@ -105,7 +118,7 @@ export default function LanWorkspaceDialog(): React.JSX.Element | null {
           setActivity('previewing')
           break
         case 'assistant':
-          appendMessage('assistant', message.text)
+          appendMessage(message.agent, message.text)
           break
         case 'dev':
           setLogs((previous) => (previous + message.text).slice(-48_000))
@@ -125,10 +138,10 @@ export default function LanWorkspaceDialog(): React.JSX.Element | null {
   }, [messages])
 
   useEffect(() => {
-    if (mount && !busy) {
+    if (agent && !busy) {
       promptRef.current?.focus()
     }
-  }, [mount, busy])
+  }, [agent, busy])
 
   if (!api) {
     return null
@@ -150,13 +163,13 @@ export default function LanWorkspaceDialog(): React.JSX.Element | null {
     setStatus(null)
     try {
       const input = { ...draft, host: draft.host.trim(), username: draft.username.trim() }
-      const path = await api.connect(input)
+      const mounted = await api.connect(input)
       rememberConnection(input)
       setField('password', '')
       setMessages([])
       setLogs('')
       setPrompt('')
-      setMount(path)
+      setMount(mounted)
     } catch (failure) {
       showError(failure)
     }
@@ -179,7 +192,7 @@ export default function LanWorkspaceDialog(): React.JSX.Element | null {
   const sendTask = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault()
     const text = prompt.trim()
-    if (busy || !mount || !text) {
+    if (busy || !mount || !agent || !text) {
       return
     }
     setActivity('running')
@@ -188,7 +201,7 @@ export default function LanWorkspaceDialog(): React.JSX.Element | null {
     appendMessage('user', text)
     setPrompt('')
     try {
-      await api.turn(text)
+      await api.turn({ agent, prompt: text })
       setStatus('preview-ready')
     } catch (failure) {
       showError(failure)
@@ -196,10 +209,14 @@ export default function LanWorkspaceDialog(): React.JSX.Element | null {
     setActivity(null)
   }
 
+  const agentLabels = {
+    codex: t('lanWorkspace.codex', 'Codex'),
+    claude: t('lanWorkspace.claude', 'Claude Code')
+  }
   const activityLabels = {
     connecting: t('lanWorkspace.connecting', 'Connecting and mounting…'),
     disconnecting: t('lanWorkspace.disconnecting', 'Disconnecting…'),
-    running: t('lanWorkspace.running', 'Remote Codex is working…'),
+    running: t('lanWorkspace.running', 'The remote AI CLI is working…'),
     previewing: t('lanWorkspace.previewing', 'Waiting for the Mac development server…')
   }
   const statusLabels = {
@@ -228,7 +245,7 @@ export default function LanWorkspaceDialog(): React.JSX.Element | null {
           <DialogDescription>
             {t(
               'lanWorkspace.description',
-              'Connect to Codex on a Mac or Linux host and preview its changes on this Mac.'
+              'Run an AI CLI on a remote Mac or Linux host and preview its changes on this Mac.'
             )}
           </DialogDescription>
         </DialogHeader>
@@ -236,21 +253,19 @@ export default function LanWorkspaceDialog(): React.JSX.Element | null {
           {mount ? (
             <>
               <p className="min-w-0 text-sm break-words text-muted-foreground">
-                {t('lanWorkspace.mountedAt', 'Mounted at {{path}}', { path: mount })}
+                {t('lanWorkspace.mountedAt', 'Mounted at {{path}}', { path: mount.path })}
               </p>
               {messages.length > 0 ? (
                 <div
                   ref={logRef}
                   role="log"
-                  aria-label={t('lanWorkspace.conversation', 'Remote Codex conversation')}
+                  aria-label={t('lanWorkspace.conversation', 'Remote AI conversation')}
                   className="grid max-h-48 gap-3 overflow-y-auto scrollbar-sleek rounded-md border border-border p-3 text-sm"
                 >
                   {messages.map(({ id, author, text }) => (
                     <div key={id} className="min-w-0">
                       <div className="mb-1 text-xs font-medium text-muted-foreground">
-                        {author === 'user'
-                          ? t('lanWorkspace.you', 'You')
-                          : t('lanWorkspace.codex', 'Codex')}
+                        {author === 'user' ? t('lanWorkspace.you', 'You') : agentLabels[author]}
                       </div>
                       <p className="whitespace-pre-wrap break-words">{text}</p>
                     </div>
@@ -262,21 +277,58 @@ export default function LanWorkspaceDialog(): React.JSX.Element | null {
                   {logs || t('lanWorkspace.logEmpty', 'Waiting for output…')}
                 </pre>
               </DialogDisclosure>
-              <div className="grid gap-2">
-                <Label htmlFor="lan-workspace-prompt">
-                  {t('lanWorkspace.task', 'Task for remote Codex')}
-                </Label>
-                <Textarea
-                  id="lan-workspace-prompt"
-                  ref={promptRef}
-                  value={prompt}
-                  onChange={(event) => setPrompt(event.target.value)}
-                  rows={3}
-                  maxLength={32_000}
-                  disabled={busy}
-                  required
-                />
-              </div>
+              {agent ? (
+                <>
+                  <div className="grid gap-2">
+                    <Label htmlFor="lan-workspace-agent">
+                      {t('lanWorkspace.agent', 'Remote AI CLI')}
+                    </Label>
+                    <Select
+                      value={agent}
+                      onValueChange={(value) => {
+                        const next = mount.agents.find((entry) => entry === value)
+                        if (next) {
+                          setSelectedAgent(next)
+                        }
+                      }}
+                      disabled={busy || mount.agents.length === 1}
+                    >
+                      <SelectTrigger id="lan-workspace-agent">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent position="popper">
+                        {mount.agents.map((entry) => (
+                          <SelectItem key={entry} value={entry}>
+                            {agentLabels[entry]}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="lan-workspace-prompt">
+                      {t('lanWorkspace.task', 'Task for the remote AI')}
+                    </Label>
+                    <Textarea
+                      id="lan-workspace-prompt"
+                      ref={promptRef}
+                      value={prompt}
+                      onChange={(event) => setPrompt(event.target.value)}
+                      rows={3}
+                      maxLength={32_000}
+                      disabled={busy}
+                      required
+                    />
+                  </div>
+                </>
+              ) : (
+                <p role="status" className="text-sm text-muted-foreground">
+                  {t(
+                    'lanWorkspace.noAgent',
+                    'The project is mounted. This SSH session could not find Codex CLI or Claude Code. Make either CLI available on the remote host, then reconnect.'
+                  )}
+                </p>
+              )}
             </>
           ) : (
             <LanWorkspaceConnectionFields
@@ -313,11 +365,13 @@ export default function LanWorkspaceDialog(): React.JSX.Element | null {
             ) : (
               <DialogCancel />
             )}
-            <Button type="submit" size="sm" disabled={busy || Boolean(mount && !prompt.trim())}>
-              {mount
-                ? t('lanWorkspace.send', 'Send and preview')
-                : t('lanWorkspace.connect', 'Connect and mount')}
-            </Button>
+            {!mount || agent ? (
+              <Button type="submit" size="sm" disabled={busy || Boolean(mount && !prompt.trim())}>
+                {mount
+                  ? t('lanWorkspace.send', 'Send and preview')
+                  : t('lanWorkspace.connect', 'Connect and mount')}
+              </Button>
+            ) : null}
           </DialogFooter>
         </form>
       </DialogContent>
