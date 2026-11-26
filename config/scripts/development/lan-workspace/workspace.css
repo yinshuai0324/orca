@@ -1,0 +1,144 @@
+:root {
+  color-scheme: light dark;
+  font:
+    14px Geist,
+    -apple-system,
+    BlinkMacSystemFont,
+    sans-serif;
+  --line: color-mix(in srgb, CanvasText 18%, Canvas);
+  --muted: color-mix(in srgb, CanvasText 68%, Canvas);
+}
+
+body {
+  margin: 0;
+  background: Canvas;
+  color: CanvasText;
+}
+
+main {
+  max-width: 760px;
+  padding: 24px 28px;
+  margin: auto;
+}
+
+header,
+.actions,
+.directory {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+header {
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+h1 {
+  font-size: 21px;
+  margin: 0;
+}
+#status,
+#mount,
+summary,
+.share-note {
+  color: var(--muted);
+  font-size: 12px;
+}
+#mount {
+  overflow-wrap: anywhere;
+}
+fieldset {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  min-width: 0;
+}
+legend {
+  color: var(--muted);
+  padding: 0 4px;
+}
+.row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+.local {
+  grid-template-columns: repeat(2, 1fr);
+}
+label {
+  display: block;
+  font-size: 12px;
+  margin: 5px 0;
+}
+input,
+textarea,
+button {
+  box-sizing: border-box;
+  font: inherit;
+  border-radius: 6px;
+}
+input,
+textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  background: Canvas;
+  color: CanvasText;
+  padding: 8px;
+}
+label input {
+  margin-top: 5px;
+}
+textarea {
+  resize: vertical;
+}
+button {
+  background: CanvasText;
+  color: Canvas;
+  border: 1px solid var(--line);
+  padding: 7px 11px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+button.secondary {
+  background: Canvas;
+  color: CanvasText;
+}
+button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.actions {
+  margin: 10px 0 14px;
+}
+#messages {
+  min-height: 65px;
+  max-height: 210px;
+  overflow: auto;
+}
+#messages p,
+#logs {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+#messages p {
+  margin: 0 0 10px;
+}
+#logs {
+  max-height: 100px;
+  overflow: auto;
+  font-size: 12px;
+}
+details {
+  padding: 8px 0;
+  border-top: 1px solid var(--line);
+}
+#error {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px;
+  white-space: pre-wrap;
+}
+#send {
+  margin-top: 6px;
+}
