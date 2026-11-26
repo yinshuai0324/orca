@@ -25,6 +25,7 @@ import { MacosUpdateRequirementHost } from '../components/macos-update-requireme
 import { shouldRenderPetOverlay } from '../components/pet/pet-overlay-visibility'
 import { useAppStore } from '../store/index'
 import { shouldMountUpdateCardForStatus } from './root-surfaces/update-notification-visibility'
+import { LanWorkspaceDialogHost } from './root-surfaces/LanWorkspaceDialogHost'
 import { useLazyModalMounts } from './root-surfaces/use-lazy-modal-mounts'
 import { AppNotificationCards } from './root-surfaces/AppNotificationCards'
 import {
@@ -192,6 +193,7 @@ export const AppRootSurfaces = memo(function AppRootSurfaces(props: {
             <AddRepoDialog />
           </ModalBoundary>
         ) : null}
+        <LanWorkspaceDialogHost />
         {/* Settings can add projects without Sidebar; host its handoff dialogs here too. */}
         {activeModal === 'confirm-non-git-folder' ? (
           <ModalBoundary boundaryId="modal.confirm-non-git-folder" resetKey>

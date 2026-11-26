@@ -68,6 +68,7 @@ import type { SlackHandOffApi } from './api/slack-hand-off-api'
 import type { AvatarGenerationApi } from '../shared/avatar-generation/avatar-generation-contract'
 import type { SpeechApi } from './api/speech/speech-api'
 import type { SshApi } from './api/ssh/ssh-api'
+import type { LanWorkspaceApi } from '../shared/remote-runtime/lan-workspace/lan-workspace-api'
 import type { PlainSshTerminalApi } from './api/terminal/plain-ssh-terminal-bridge'
 import type { LegacyRelayBridgeApi } from './api/mobile/legacy-relay-bridge-api'
 import type {
@@ -187,6 +188,7 @@ export type PreloadApi = {
   grokAccounts: GrokAccountsApi
   cursorAccounts: CursorAccountsApi
   ssh: SshApi
+  lanWorkspace?: LanWorkspaceApi
   /** Desktop only: an unmanaged ssh login to a host whose move is blocked. */
   plainSsh?: PlainSshTerminalApi
   /** COMPAT(legacy-relay-bridge): desktop-only, revisit 2027-01-15. */

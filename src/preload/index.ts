@@ -91,6 +91,7 @@ import { zcodePlanCredentialsApi } from './api/agent-accounts/zcode-plan-credent
 import { grokAccountsApi } from './api/agent-accounts/grok-accounts-bridge'
 import { cursorAccountsApi } from './api/agent-accounts/cursor-accounts-bridge'
 import { sshApi } from './api/ssh/ssh-bridge'
+import { lanWorkspaceApi } from './api/lan-workspace/lan-workspace-bridge'
 import { plainSshTerminalApi } from './api/terminal/plain-ssh-terminal-bridge'
 import { legacyRelayBridgeApi } from './api/mobile/legacy-relay-bridge-api'
 import { automationsApi } from './api/automations/automations-bridge'
@@ -206,6 +207,7 @@ const api = {
   grokAccounts: grokAccountsApi,
   cursorAccounts: cursorAccountsApi,
   ssh: sshApi,
+  lanWorkspace: lanWorkspaceApi,
   plainSsh: plainSshTerminalApi,
   legacyRelayBridge: legacyRelayBridgeApi,
   automations: automationsApi,

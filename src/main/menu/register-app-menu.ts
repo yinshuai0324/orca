@@ -9,7 +9,6 @@ import { createAppMenuQuitItems, type AppMenuQuitHandlers } from './app-menu-qui
 import { createAppMenuReloadAndDevToolsItems } from './app-menu-reload-devtools-items'
 import { labeledAppMenuRole } from './labeled-app-menu-role'
 import { createAppWindowMenu } from './app-menu-window'
-import { createLanWorkspaceMenuItem } from './lan-workspace-menu-item'
 
 export type AppearanceMenuState = {
   showTasksButton: boolean
@@ -127,14 +126,12 @@ function buildAndApplyMenu(options: RegisterAppMenuOptions): void {
     click: (_menuItem, window) => onOpenCrashReport(window)
   }
 
-  const lanWorkspaceItem = createLanWorkspaceMenuItem()
   const macAppMenu: Electron.MenuItemConstructorOptions = {
     label: options.appMenuLabel ?? app.name,
     submenu: [
       labeledAppMenuRole('about', 'menu.about', 'About Orca'),
       checkForUpdatesItem,
       settingsItem,
-      ...(lanWorkspaceItem ? [lanWorkspaceItem] : []),
       { type: 'separator' },
       labeledAppMenuRole('services', 'menu.services', 'Services'),
       { type: 'separator' },

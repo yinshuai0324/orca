@@ -4,6 +4,7 @@ import { registerWslMoveWiring } from '../wsl/wsl-move-driver-wiring'
 import { registerWslDriveProjectHandlers } from '../wsl/wsl-drive-project-handlers'
 import { installProjectRuntimeGitRouter } from '../../workspaces/execution-host/project-runtime-git-router'
 import { registerCliHandlers } from '../cli'
+import { registerLanWorkspaceHandlers } from '../lan-workspace/lan-workspace-handlers'
 import { registerOrcaUninstallHandlers } from '../orca-uninstall'
 import { registerPreflightHandlers } from '../preflight/preflight'
 import type { Store } from '../../persistence/loading-store/store'
@@ -146,6 +147,7 @@ export async function registerCoreHandlers(
       onBeforeRelaunchExit: () => closeNotificationDismissalsBeforeRelaunch(runtime)
     })
     registerCliHandlers()
+    registerLanWorkspaceHandlers()
     registerOrcaUninstallHandlers(store)
     registerPreflightHandlers(store)
     registerCodexAccountHandlers(codexAccounts, () => store.getSettings())

@@ -46,6 +46,7 @@ export type UISliceContextual = {
     | 'confirm-remove-folder'
     | 'confirm-sleep-twin'
     | 'add-repo'
+    | 'lan-workspace'
     | 'quick-open'
     | 'worktree-palette'
     | 'workspace-cleanup'
