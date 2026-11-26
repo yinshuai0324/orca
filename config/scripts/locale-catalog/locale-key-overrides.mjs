@@ -175,12 +175,6 @@ const BASE_LOCALE_KEY_OVERRIDES = {
     zh: '打开 Linear 任务',
     ja: 'Linear タスクを開く'
   },
-  // Onboarding pill beside Orca Mobile: "New" marks a new feature, not a create action.
-  'auto.components.sidebar.SidebarNav.c86d83b5c3': {
-    ko: '신규',
-    zh: '新功能',
-    ja: '新機能'
-  },
   // The worktree cards notice badge marks a new feature too.
   'sidebar.worktreeCardsUpdateNotice.newLabel': { zh: '新功能' },
   // Automation status: "Active" means enabled, not the generic "current" (当前).

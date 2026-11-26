@@ -6335,17 +6335,12 @@
         "SidebarNav": {
           "80611a8b10": "Recherche",
           "0c3395fd32": "Rechercher parmi les worktrees et les onglets du navigateur",
-          "c86d83b5c3": "Nouveau",
-          "1b5c41caee": "Orca Mobile",
-          "f323383e9a": "Automatisations",
           "e7ad3c540d": "Ouvrir les tâches Jira",
           "c39ab10000": "Ouvrir les tâches Linear",
           "196c1b5362": "Ouvrir les tâches GitLab",
           "0ccba862b8": "Ouvrir les tâches GitHub",
           "fee535205b": "Tâches",
-          "d599269755": "Masquer de la barre latérale",
-          "artifacts": "Artefacts",
-          "skills": "Skills"
+          "d599269755": "Masquer de la barre latérale"
         },
         "SidebarRepositoryFilterSection": {
           "d3a9c4cea1": "Effacer",

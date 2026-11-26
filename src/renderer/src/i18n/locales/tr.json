@@ -7565,17 +7565,12 @@
         "SidebarNav": {
           "80611a8b10": "Ara",
           "0c3395fd32": "Worktree'lerde ve tarayıcı sekmelerinde ara",
-          "c86d83b5c3": "Yeni",
-          "1b5c41caee": "Orca Mobile",
-          "f323383e9a": "Otomasyonlar",
           "e7ad3c540d": "Jira görevlerini aç",
           "c39ab10000": "Linear görevlerini aç",
           "196c1b5362": "GitLab görevlerini aç",
           "0ccba862b8": "GitHub görevlerini aç",
           "fee535205b": "Görevler",
-          "d599269755": "Kenar çubuğundan gizle",
-          "artifacts": "Artifact'ler",
-          "skills": "Beceriler"
+          "d599269755": "Kenar çubuğundan gizle"
         },
         "SidebarRepositoryFilterSection": {
           "d3a9c4cea1": "Temizle",

@@ -6509,17 +6509,12 @@
         "SidebarNav": {
           "80611a8b10": "Suchen",
           "0c3395fd32": "Worktrees und Browser-Tabs durchsuchen",
-          "c86d83b5c3": "Neu",
-          "1b5c41caee": "Orca Mobile",
-          "f323383e9a": "Automatisierungen",
           "e7ad3c540d": "Jira-Aufgaben öffnen",
           "c39ab10000": "Linear-Aufgaben öffnen",
           "196c1b5362": "GitLab-Aufgaben öffnen",
           "0ccba862b8": "GitHub-Aufgaben öffnen",
           "fee535205b": "Aufgaben",
-          "d599269755": "Aus der Seitenleiste ausblenden",
-          "artifacts": "Artefakte",
-          "skills": "Skills"
+          "d599269755": "Aus der Seitenleiste ausblenden"
         },
         "SidebarRepositoryFilterSection": {
           "d3a9c4cea1": "Zurücksetzen",

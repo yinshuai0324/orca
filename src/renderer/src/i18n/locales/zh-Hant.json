@@ -7333,17 +7333,12 @@
         "SidebarNav": {
           "80611a8b10": "搜尋",
           "0c3395fd32": "搜尋工作樹和瀏覽器分頁",
-          "c86d83b5c3": "新功能",
-          "1b5c41caee": "Orca Mobile",
-          "f323383e9a": "自動化",
           "e7ad3c540d": "開啟 Jira 任務",
           "c39ab10000": "開啟 Linear 任務",
           "196c1b5362": "開啟 GitLab 任務",
           "0ccba862b8": "開啟 GitHub 任務",
           "fee535205b": "任務",
-          "d599269755": "從側邊欄隱藏",
-          "artifacts": "成品",
-          "skills": "技能"
+          "d599269755": "從側邊欄隱藏"
         },
         "SidebarRepositoryFilterSection": {
           "d3a9c4cea1": "清除",

@@ -6585,17 +6585,12 @@
         "SidebarNav": {
           "80611a8b10": "검색",
           "0c3395fd32": "작업 트리 및 브라우저 탭 검색",
-          "c86d83b5c3": "신규",
-          "1b5c41caee": "Orca 모바일",
-          "f323383e9a": "자동화",
           "e7ad3c540d": "Jira 작업 열기",
           "c39ab10000": "Linear 작업 열기",
           "196c1b5362": "GitLab 작업 열기",
           "0ccba862b8": "GitHub 작업 열기",
           "fee535205b": "작업",
-          "d599269755": "사이드바에서 숨기기",
-          "artifacts": "아티팩트",
-          "skills": "스킬"
+          "d599269755": "사이드바에서 숨기기"
         },
         "SidebarRepositoryFilterSection": {
           "d3a9c4cea1": "지우기",

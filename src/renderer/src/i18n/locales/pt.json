@@ -12713,17 +12713,12 @@
         "SidebarNav": {
           "80611a8b10": "Buscar",
           "0c3395fd32": "Buscar worktrees e abas do navegador",
-          "c86d83b5c3": "Novo",
-          "1b5c41caee": "Orca Mobile",
-          "f323383e9a": "Automações",
           "e7ad3c540d": "Abrir tarefas do Jira",
           "c39ab10000": "Abrir tarefas do Linear",
           "196c1b5362": "Abrir tarefas do GitLab",
           "0ccba862b8": "Abrir tarefas do GitHub",
           "fee535205b": "Tarefas",
-          "d599269755": "Ocultar da barra lateral",
-          "artifacts": "Artefatos",
-          "skills": "Skills"
+          "d599269755": "Ocultar da barra lateral"
         },
         "AddRepoHostSelector": {
           "host": "Host",
