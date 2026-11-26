@@ -1,6 +1,6 @@
 # Orca 局域网开发原型
 
-这个入口复用 Orca 仓库的 Electron、SSH2 和 shell 参数处理，从独立窗口连接远端。使用 Orca 的开发环境安装依赖后，在 Mac 的日常开发终端运行 `pnpm exec electron config/scripts/development/lan-workspace/main.mjs`。Electron 使用启动终端的环境来运行你填写的 Mac 启动命令。
+从源码启动 Orca 时，在 Mac 的日常开发终端运行 `pnpm dev`。打开 Orca 工作台后，从 macOS 顶部的 **Orca → LAN Workspace…** 打开局域网开发。客户端用启动 Orca 的终端环境运行本机开发服务。
 
 1. 填写远程 Linux 机器的 SSH IP、用户名和密码，第一次连接确认主机指纹。
 2. 在窗口里选择 Mac 项目目录，填写本机启动命令和预览地址，然后点击 **连接并挂载**。

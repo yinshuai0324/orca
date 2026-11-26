@@ -37,6 +37,7 @@ export class LocalPreview {
         signal.throwIfAborted()
         const child = spawn(process.env.SHELL || '/bin/sh', ['-c', this.project.startCommand], {
           cwd: this.project.directory,
+          env: { ...process.env, PATH: process.env.ORCA_LAN_PROJECT_PATH ?? process.env.PATH },
           detached: true,
           stdio: ['ignore', 'pipe', 'pipe']
         })

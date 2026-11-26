@@ -1891,6 +1891,7 @@
   "menu": {
     "checkForUpdates": "檢查更新...",
     "settings": "設定",
+    "lanWorkspace": "區域網路開發…",
     "exploreOrca": "探索 Orca",
     "gettingStarted": "Orca 入門",
     "reportCrash": "傳送當機報告...",

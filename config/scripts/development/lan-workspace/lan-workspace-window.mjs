@@ -1,17 +1,15 @@
 import { join } from 'node:path'
-import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
+import { BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import { LanSession, validateProject } from './lan-session.mjs'
 import { LocalPreview } from './local-preview.mjs'
 
 const directory = import.meta.dirname
 const background = process.env.ORCA_BACKGROUND_LAUNCH === '1'
 const hostKeys = new Map()
-app.setName('Orca LAN Workspace')
 let window
 let session
 let preview
 let busy = false
-let quitReady = false
 
 function show(kind, text) {
   if (window && !window.isDestroyed()) {
@@ -129,46 +127,41 @@ register('disconnect', async () => {
   await disconnect()
 })
 
-app
-  .whenReady()
-  .then(async () => {
-    if (process.platform !== 'darwin') {
-      throw new Error('This prototype runs on macOS.')
+export async function openLanWorkspaceWindow() {
+  if (window && !window.isDestroyed()) {
+    if (!background) {
+      window.focus()
     }
-    if (background) {
-      app.setActivationPolicy('prohibited')
-    }
-    window = new BrowserWindow({
-      width: 820,
-      height: 765,
-      minWidth: 590,
-      minHeight: 560,
-      show: !background,
-      title: 'Orca · 局域网开发',
-      webPreferences: {
-        preload: join(directory, 'preload.cjs'),
-        contextIsolation: true,
-        sandbox: true,
-        nodeIntegration: false
-      }
-    })
-    window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
-    window.webContents.on('will-navigate', (event) => event.preventDefault())
-    await window.loadFile(join(directory, 'workspace.html'))
-  })
-  .catch((error) => {
-    console.error(error)
-    app.exit(1)
-  })
-
-app.on('window-all-closed', () => app.quit())
-app.on('before-quit', (event) => {
-  if (quitReady) {
     return
   }
-  event.preventDefault()
-  void disconnect().finally(() => {
-    quitReady = true
-    app.quit()
+
+  const workspace = new BrowserWindow({
+    width: 820,
+    height: 765,
+    minWidth: 590,
+    minHeight: 560,
+    show: !background,
+    title: 'Orca · 局域网开发',
+    webPreferences: {
+      preload: join(directory, 'preload.cjs'),
+      contextIsolation: true,
+      sandbox: true,
+      nodeIntegration: false
+    }
   })
-})
+  window = workspace
+  workspace.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
+  workspace.webContents.on('will-navigate', (event) => event.preventDefault())
+  workspace.once('closed', () => {
+    window = undefined
+    void disconnect()
+  })
+  try {
+    await workspace.loadFile(join(directory, 'workspace.html'))
+  } catch (error) {
+    if (!workspace.isDestroyed()) {
+      workspace.close()
+    }
+    throw error
+  }
+}

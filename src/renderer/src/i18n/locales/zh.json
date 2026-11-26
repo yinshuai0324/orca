@@ -1506,6 +1506,7 @@
   "menu": {
     "checkForUpdates": "检查更新...",
     "settings": "设置",
+    "lanWorkspace": "局域网开发…",
     "exploreOrca": "探索 Orca",
     "gettingStarted": "Orca 入门",
     "reportCrash": "报告崩溃...",

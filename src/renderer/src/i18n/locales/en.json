@@ -2190,6 +2190,7 @@
   "menu": {
     "checkForUpdates": "Check for Updates...",
     "settings": "Settings",
+    "lanWorkspace": "LAN Workspace…",
     "exploreOrca": "Explore Orca",
     "gettingStarted": "Getting Started with Orca",
     "reportCrash": "Report Crash...",
