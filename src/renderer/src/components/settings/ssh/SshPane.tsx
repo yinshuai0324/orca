@@ -40,6 +40,7 @@ import { useTranslate } from '@/i18n/use-translate'
 import { useSshAddTargetIntent } from './targets/use-ssh-add-target-intent'
 import { syncSshConfigTargetsPassively } from '../../../runtime/hosts/ssh/ssh-config-passive-sync'
 import type { SshTarget } from '../../../../../shared/remote-runtime/ssh/ssh-types'
+import { useLanWorkspaceAvailable } from '../lan-workspace/use-lan-workspace-available'
 
 type SshPaneProps = { addTargetIntentSignal?: number }
 
@@ -49,6 +50,8 @@ export function SshPane({ addTargetIntentSignal }: SshPaneProps): React.JSX.Elem
   // Reuse globally hydrated SSH state instead of duplicate listeners and per-target IPC reads.
   const sshConnectionStates = useAppStore((s) => s.sshConnectionStates)
   const recordFeatureInteraction = useAppStore((s) => s.recordFeatureInteraction)
+  const openModal = useAppStore((s) => s.openModal)
+  const lanWorkspaceAvailable = useLanWorkspaceAvailable()
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [form, setForm] = useState<EditingTarget>(EMPTY_FORM)
@@ -316,6 +319,17 @@ export function SshPane({ addTargetIntentSignal }: SshPaneProps): React.JSX.Elem
                 onDisconnect={handleDisconnect}
                 onTest={testOne}
                 onEdit={handleEdit}
+                onMountLocalProject={
+                  lanWorkspaceAvailable
+                    ? (target) =>
+                        openModal('lan-workspace', {
+                          targetId: target.id,
+                          targetLabel: target.label,
+                          host: target.host,
+                          username: target.username
+                        })
+                    : undefined
+                }
                 onRemove={(target) => requestRemoveTarget(target, requestRemove)}
                 onServerChanged={() => void loadTargets()}
               />

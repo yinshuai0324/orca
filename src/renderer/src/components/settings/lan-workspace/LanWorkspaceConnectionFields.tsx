@@ -1,6 +1,6 @@
 import type { ComponentProps } from 'react'
 import { FolderOpen } from 'lucide-react'
-import type { LanWorkspaceConnection } from '../../../../../shared/remote-runtime/lan-workspace/lan-workspace-api'
+import type { LanWorkspaceProject } from '../../../../../shared/remote-runtime/lan-workspace/lan-workspace-api'
 import { useTranslate } from '@/i18n/use-translate'
 import { Button } from '@/components/ui/button'
 import { DialogDisclosure } from '@/components/ui/dialog-parts'
@@ -17,9 +17,9 @@ function ConnectionField({
   ...inputProps
 }: Omit<ComponentProps<typeof Input>, 'id' | 'onChange' | 'value'> & {
   label: string
-  field: keyof LanWorkspaceConnection
-  draft: LanWorkspaceConnection
-  onChange: (field: keyof LanWorkspaceConnection, value: string) => void
+  field: keyof LanWorkspaceProject
+  draft: LanWorkspaceProject
+  onChange: (field: keyof LanWorkspaceProject, value: string) => void
 }): React.JSX.Element {
   const id = `lan-workspace-${field}`
   return (
@@ -45,38 +45,15 @@ export function LanWorkspaceConnectionFields({
   onChange,
   onBrowse
 }: {
-  draft: LanWorkspaceConnection
+  draft: LanWorkspaceProject
   busy: boolean
-  onChange: (field: keyof LanWorkspaceConnection, value: string) => void
+  onChange: (field: keyof LanWorkspaceProject, value: string) => void
   onBrowse: () => void
 }): React.JSX.Element {
   const t = useTranslate()
   const bindings = { draft, onChange }
   return (
     <fieldset className="grid gap-3" disabled={busy}>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <ConnectionField
-          {...bindings}
-          field="host"
-          label={t('lanWorkspace.host', 'IP address')}
-          placeholder="192.168.1.20"
-          autoComplete="off"
-          spellCheck={false}
-        />
-        <ConnectionField
-          {...bindings}
-          field="username"
-          label={t('lanWorkspace.username', 'SSH username')}
-          autoComplete="username"
-        />
-      </div>
-      <ConnectionField
-        {...bindings}
-        field="password"
-        label={t('lanWorkspace.password', 'SSH password')}
-        type="password"
-        autoComplete="off"
-      />
       <ConnectionField
         {...bindings}
         field="directory"

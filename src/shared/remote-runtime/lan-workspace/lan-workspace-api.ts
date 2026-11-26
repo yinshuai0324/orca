@@ -17,16 +17,16 @@ export type LanWorkspaceTerminalTarget = { terminalId: string }
 
 export type LanWorkspaceTerminalSize = LanWorkspaceTerminalTarget & { cols: number; rows: number }
 
-export type LanWorkspaceConnection = {
-  host: string
-  username: string
-  password: string
+export type LanWorkspaceProject = {
   directory: string
   startCommand: string
   previewUrl: string
 }
 
-export type LanWorkspaceConnectInput = LanWorkspaceConnection & { mode: 'mount' | 'terminal' }
+export type LanWorkspaceConnectInput = LanWorkspaceProject & {
+  targetId: string
+  mode: 'mount' | 'terminal'
+}
 
 export type LanWorkspaceMessage =
   | { kind: 'terminal-data'; terminalId: string; data: string }

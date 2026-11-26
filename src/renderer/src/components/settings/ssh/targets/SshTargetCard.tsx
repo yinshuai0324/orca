@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react'
-import { Loader2, MoreHorizontal, Pencil, PlugZap, Trash2 } from 'lucide-react'
+import { FolderOpen, Loader2, MoreHorizontal, Pencil, PlugZap, Trash2 } from 'lucide-react'
 import type {
   SshConnectionState,
   SshConnectionStatus,
@@ -84,6 +84,7 @@ type SshTargetCardProps = {
   onDisconnect: (targetId: string) => void | Promise<void>
   onTest: (targetId: string) => void | Promise<void>
   onEdit: (target: SshTarget) => void
+  onMountLocalProject?: (target: SshTarget) => void
   onRemove: (targetId: string) => void
   onServerChanged?: () => void
 }
@@ -99,6 +100,7 @@ export function SshTargetCard({
   onDisconnect,
   onTest,
   onEdit,
+  onMountLocalProject,
   onRemove,
   onServerChanged
 }: SshTargetCardProps): React.JSX.Element {
@@ -267,6 +269,15 @@ export function SshTargetCard({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="min-w-44">
+            {onMountLocalProject ? (
+              <DropdownMenuItem
+                disabled={testing || hasActionInFlight || isConnectingSshStatus(status)}
+                onSelect={() => onMountLocalProject(target)}
+              >
+                <FolderOpen />
+                {t('lanWorkspace.mountLocalProject', 'Mount local project')}…
+              </DropdownMenuItem>
+            ) : null}
             <DropdownMenuItem
               disabled={
                 testing ||

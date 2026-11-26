@@ -15,15 +15,15 @@ import (
 )
 
 func main() {
-	if len(os.Args) != 2 {
-		log.Fatal("expected a project directory")
+	if len(os.Args) != 3 {
+		log.Fatal("expected a project directory and SMB user")
 	}
-	if err := serve(os.Args[1], os.Stdin); err != nil {
+	if err := serve(os.Args[1], os.Args[2], os.Stdin); err != nil {
 		log.Fatal(err)
 	}
 }
 
-func serve(directory string, stdin io.Reader) error {
+func serve(directory, username string, stdin io.Reader) error {
 	input := bufio.NewReader(stdin)
 	password, err := input.ReadString('\n')
 	if err != nil || len(password) != 49 {
@@ -37,7 +37,7 @@ func serve(directory string, stdin io.Reader) error {
 	project := &projectFS{root: root, save: func() { firstSave.Do(func() { fmt.Println("saved") }) }}
 	srv := smb.New()
 	srv.RequireSigning = true
-	srv.AddUser("orca", strings.TrimSuffix(password, "\n"))
+	srv.AddUser(username, strings.TrimSuffix(password, "\n"))
 	if err = srv.Share("project", project); err != nil {
 		root.Close()
 		return err

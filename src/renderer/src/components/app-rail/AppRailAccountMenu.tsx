@@ -14,10 +14,6 @@ import {
   DropdownMenuShortcut,
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
-import {
-  AddLanWorkspaceMenuItem,
-  useLanWorkspaceAvailable
-} from '@/components/settings/lan-workspace/AddLanWorkspaceMenuItem'
 import { SettingsTooltipLabel } from '@/components/sidebar/chrome/SidebarSettingsHelpMenu'
 import {
   MilestonesMenuItem,
@@ -107,7 +103,6 @@ export function AppRailAccountMenu({
   const [signOutOpen, setSignOutOpen] = useState(false)
   const [signingOut, setSigningOut] = useState(false)
 
-  const lanWorkspaceAvailable = useLanWorkspaceAvailable()
   const settingsLabel = t('auto.components.sidebar.SidebarSettingsHelpMenu.a428c25998', 'Settings')
   const label = account ? t('appRail.account', 'Account') : settingsLabel
 
@@ -228,7 +223,6 @@ export function AppRailAccountMenu({
               <DropdownMenuShortcut>{settingsShortcut}</DropdownMenuShortcut>
             ) : null}
           </DropdownMenuItem>
-          {lanWorkspaceAvailable ? <AddLanWorkspaceMenuItem /> : null}
           <DropdownMenuSeparator />
           {help.items}
           {account ? (

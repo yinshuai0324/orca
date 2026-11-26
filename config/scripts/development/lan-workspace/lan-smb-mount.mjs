@@ -13,7 +13,7 @@ function reason(code, message) {
   return Object.assign(new Error(message), { name: 'LanWorkspacePrerequisiteError', reason: code })
 }
 
-function mountScript(port) {
+function mountScript(port, username) {
   return `set -eu
 umask 077
 test -x /sbin/mount_smbfs || exit 48
@@ -27,7 +27,7 @@ cleanup() {
 }
 trap cleanup EXIT
 trap 'exit 130' HUP INT TERM
-LC_ALL=C /sbin/mount_smbfs -o nobrowse,soft,forcenewsession "//orca@${loopback}:${port}/project" "$path"
+LC_ALL=C /sbin/mount_smbfs -o nobrowse,soft,forcenewsession "//${username}@${loopback}:${port}/project" "$path"
 mounted=1
 printf '\\nORCA_SMB_READY %s\\n' "$path"
 IFS= read -r stop || true
@@ -39,6 +39,7 @@ export class LanSmbMount {
   #channel
   #channelDone
   #forwardedPort
+  #acceptForward
   #sockets = new Set()
   #abort = new AbortController()
   #closing
@@ -56,8 +57,9 @@ export class LanSmbMount {
       throw reason('smb-helper', 'Orca could not build the local SMB helper.')
     })
     signal.throwIfAborted()
+    const username = `orca${randomBytes(8).toString('hex')}`
     const password = randomBytes(24).toString('hex')
-    const port = await this.#startServer(executable, directory, password)
+    const port = await this.#startServer(executable, directory, username, password)
     signal.throwIfAborted()
     const remotePort = await this.#forward(port)
     signal.throwIfAborted()
@@ -71,15 +73,15 @@ export class LanSmbMount {
       )
     }
     signal.throwIfAborted()
-    this.path = await this.#mount(remotePort, password)
+    this.path = await this.#mount(remotePort, username, password)
     const path = quotePosixShell(this.path)
     this.shellDirectory = `${remoteToolPath}\n/sbin/mount | /usr/bin/grep -F -q " on ${this.path} (smbfs" && cd -- ${path}`
     return this.path
   }
 
-  #startServer(executable, directory, password) {
+  #startServer(executable, directory, username, password) {
     return new Promise((resolve, reject) => {
-      const child = spawn(executable, [directory], { stdio: ['pipe', 'pipe', 'ignore'] })
+      const child = spawn(executable, [directory, username], { stdio: ['pipe', 'pipe', 'ignore'] })
       this.#child = child
       const lines = createInterface({ input: child.stdout })
       let ready = false
@@ -123,17 +125,16 @@ export class LanSmbMount {
           return
         }
         if (this.#abort.signal.aborted) {
-          this.#stopForward(port)
+          void this.#stopForward(port)
           reject(this.#abort.signal.reason)
           return
         }
         this.#forwardedPort = port
-        this.ssh.on('tcp connection', (details, accept, rejectConnection) => {
-          if (
-            details.destIP !== loopback ||
-            details.destPort !== port ||
-            this.#abort.signal.aborted
-          ) {
+        this.#acceptForward = (details, accept, rejectConnection) => {
+          if (details.destIP !== loopback || details.destPort !== port) {
+            return
+          }
+          if (this.#abort.signal.aborted) {
             rejectConnection()
             return
           }
@@ -148,13 +149,14 @@ export class LanSmbMount {
             channel.destroy()
           })
           channel.pipe(socket).pipe(channel)
-        })
+        }
+        this.ssh.on('tcp connection', this.#acceptForward)
         resolve(port)
       })
     })
   }
 
-  #mount(port, password) {
+  #mount(port, username, password) {
     return new Promise((resolve, reject) => {
       let output = ''
       let ready = false
@@ -164,7 +166,7 @@ export class LanSmbMount {
         () => reject(reason('smb-mount', 'The remote SMB mount timed out.')),
         20_000
       )
-      const command = `/bin/sh -c ${quotePosixShell(mountScript(port))}`
+      const command = `/bin/sh -c ${quotePosixShell(mountScript(port, username))}`
       this.ssh.exec(command, { pty: { term: 'dumb', rows: 24, cols: 80 } }, (error, channel) => {
         if (error || signal.aborted) {
           clearTimeout(timeout)
@@ -217,11 +219,18 @@ export class LanSmbMount {
   }
 
   #stopForward(port) {
-    try {
-      this.ssh.unforwardIn(loopback, port, () => {})
-    } catch {
-      // SSH already removed its listener when the connection closed.
-    }
+    return new Promise((resolve) => {
+      const timeout = setTimeout(resolve, 3_000)
+      const done = () => {
+        clearTimeout(timeout)
+        resolve()
+      }
+      try {
+        this.ssh.unforwardIn(loopback, port, done)
+      } catch {
+        done()
+      }
+    })
   }
 
   async #release() {
@@ -239,7 +248,10 @@ export class LanSmbMount {
       this.#channel.destroy()
     }
     if (this.#forwardedPort) {
-      this.#stopForward(this.#forwardedPort)
+      await this.#stopForward(this.#forwardedPort)
+    }
+    if (this.#acceptForward) {
+      this.ssh.off('tcp connection', this.#acceptForward)
     }
     for (const socket of this.#sockets) {
       socket.destroy()

@@ -1,7 +1,5 @@
-import { createHash, randomUUID } from 'node:crypto'
-import { createRequire } from 'node:module'
+import { randomUUID } from 'node:crypto'
 import { realpath, stat } from 'node:fs/promises'
-import { isIP } from 'node:net'
 import { isAbsolute } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import { serveProjectFiles } from './project-sftp.mjs'
@@ -13,8 +11,6 @@ import {
 } from './lan-workspace-mount.mjs'
 import { LanWorkspacePty } from './lan-workspace-pty.mjs'
 import { LanSmbMount } from './lan-smb-mount.mjs'
-
-const { Client } = createRequire(import.meta.url)('ssh2')
 
 function appendText(previous, chunk) {
   return (previous + chunk.toString()).slice(-8192)
@@ -69,18 +65,6 @@ function runRemote(ssh, command, { timeout = 10_000 } = {}) {
   })
 }
 
-export function validateSshConnection(config) {
-  if (
-    !isIP(config?.host ?? '') ||
-    typeof config.username !== 'string' ||
-    !config.username.trim() ||
-    typeof config.password !== 'string' ||
-    !config.password
-  ) {
-    throw new Error('Enter the remote IP address, SSH username, and password.')
-  }
-}
-
 export async function validateProject(config) {
   if (typeof config.directory !== 'string' || !isAbsolute(config.directory)) {
     throw new Error('Choose an absolute path to the project on this Mac.')
@@ -112,62 +96,38 @@ export function validatePreview({ directory, startCommand, previewUrl }) {
 }
 
 export class LanSession {
-  #ssh = new Client()
+  #ssh
   #mount
   #mountChannel
   #smb
+  #releaseTransport
+  #abort = new AbortController()
   #closed = false
-  #authenticated = false
   #mounted = false
+  #transportClosed = () => {
+    if (!this.#closed) {
+      void this.close()
+      this.onDisconnect()
+    }
+  }
   terminalId = randomUUID()
   terminal = new LanWorkspacePty()
 
-  constructor({ verifyHost, onDisconnect = () => {}, onRemoteSave = () => {} }) {
-    this.verifyHost = verifyHost
+  constructor({ openSshTransport, onDisconnect = () => {}, onRemoteSave = () => {} }) {
+    this.openSshTransport = openSshTransport
     this.onDisconnect = onDisconnect
     this.onRemoteSave = onRemoteSave
-    this.#ssh.on('error', () => {})
-    this.#ssh.once('close', () => {
-      if (!this.#closed) {
-        void this.close()
-        onDisconnect()
-      }
-    })
   }
 
-  async open({ host, username, password, port = 22 }, projectDirectory) {
-    await new Promise((resolve, reject) => {
-      this.#ssh.once('ready', resolve)
-      this.#ssh.once('error', reject)
-      this.#ssh.once('close', () => reject(new Error('SSH connection closed.')))
-      this.#ssh.connect({
-        host,
-        port,
-        username,
-        password,
-        readyTimeout: 20_000,
-        keepaliveInterval: 10_000,
-        tryKeyboard: true,
-        hostVerifier: (key, checked) => {
-          const fingerprint = `SHA256:${createHash('sha256').update(key).digest('base64').replace(/=+$/, '')}`
-          void Promise.resolve()
-            .then(() => this.verifyHost(host, fingerprint))
-            .then(checked, () => checked(false))
-        }
-      })
-      this.#ssh.on('keyboard-interactive', (_name, _instructions, _language, prompts, finish) => {
-        finish(
-          prompts.length === 1 && !prompts[0].echo && /password/i.test(prompts[0].prompt)
-            ? [password]
-            : []
-        )
-      })
-    })
-
+  async open(targetId, projectDirectory) {
+    const { client, release } = await this.openSshTransport(targetId, this.#abort.signal)
     if (this.#closed) {
+      await release?.()
       throw new Error('SSH connection closed.')
     }
-    this.#authenticated = true
+    this.#ssh = client
+    this.#releaseTransport = release
+    client.once('close', this.#transportClosed)
     if (projectDirectory === null) {
       return { path: null, terminalId: this.terminalId }
     }
@@ -241,7 +201,7 @@ export class LanSession {
   }
 
   async openTerminal(input, emit) {
-    if (!this.#authenticated || this.#closed || ((this.#mount || this.#smb) && !this.#mounted)) {
+    if (!this.#ssh || this.#closed || ((this.#mount || this.#smb) && !this.#mounted)) {
       throw new Error('Connect to the remote host first.')
     }
     const directory =
@@ -254,8 +214,9 @@ export class LanSession {
       return
     }
     this.#closed = true
-    this.#authenticated = false
+    this.#abort.abort()
     this.#mounted = false
+    this.#ssh?.off('close', this.#transportClosed)
     this.terminal.close()
     await this.#smb?.close()
     if (this.#mount) {
@@ -264,7 +225,6 @@ export class LanSession {
     if (this.#mountChannel) {
       closeSshChannel(this.#mountChannel)
     }
-    this.#ssh.end()
-    this.#ssh.destroy()
+    await this.#releaseTransport?.()
   }
 }

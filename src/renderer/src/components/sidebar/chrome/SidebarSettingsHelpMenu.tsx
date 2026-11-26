@@ -2,16 +2,6 @@ import React from 'react'
 import { CircleHelp, Settings } from 'lucide-react'
 import { useAppStore } from '@/store/index'
 import { Button } from '@/components/ui/button'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger
-} from '@/components/ui/dropdown-menu'
-import {
-  AddLanWorkspaceMenuItem,
-  useLanWorkspaceAvailable
-} from '@/components/settings/lan-workspace/AddLanWorkspaceMenuItem'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useShortcutKeyDetails } from '@/lib/keyboard/useShortcutLabel'
 import { ShortcutKeyCombo } from '@/components/ui/ShortcutKeyCombo'
@@ -52,45 +42,26 @@ export function SidebarSettingsHelpMenu(): React.JSX.Element {
   const t = useTranslate()
   const openSettingsPage = useAppStore((s) => s.openSettingsPage)
   const milestones = useSetupMilestones()
-  const lanWorkspaceAvailable = useLanWorkspaceAvailable()
   const settingsLabel = t('auto.components.sidebar.SidebarSettingsHelpMenu.a428c25998', 'Settings')
-  const settingsButton = (
-    <Button
-      variant="ghost"
-      size="icon-xs"
-      type="button"
-      aria-label={settingsLabel}
-      className="text-muted-foreground"
-      onClick={lanWorkspaceAvailable ? undefined : openSettingsPage}
-    >
-      <Settings className="size-3.5" />
-    </Button>
-  )
   return (
     <div className="flex items-center gap-1">
-      <DropdownMenu modal={false}>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            {lanWorkspaceAvailable ? (
-              <DropdownMenuTrigger asChild>{settingsButton}</DropdownMenuTrigger>
-            ) : (
-              settingsButton
-            )}
-          </TooltipTrigger>
-          <TooltipContent side="top" sideOffset={4} className="flex items-center gap-1.5">
-            <SettingsTooltipLabel />
-          </TooltipContent>
-        </Tooltip>
-        {lanWorkspaceAvailable ? (
-          <DropdownMenuContent side="top" align="start" sideOffset={4}>
-            <DropdownMenuItem onSelect={openSettingsPage}>
-              <Settings className="size-3.5" />
-              {settingsLabel}
-            </DropdownMenuItem>
-            <AddLanWorkspaceMenuItem />
-          </DropdownMenuContent>
-        ) : null}
-      </DropdownMenu>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            type="button"
+            aria-label={settingsLabel}
+            className="text-muted-foreground"
+            onClick={openSettingsPage}
+          >
+            <Settings className="size-3.5" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="top" sideOffset={4} className="flex items-center gap-1.5">
+          <SettingsTooltipLabel />
+        </TooltipContent>
+      </Tooltip>
       <HelpMenu
         side="top"
         align="start"

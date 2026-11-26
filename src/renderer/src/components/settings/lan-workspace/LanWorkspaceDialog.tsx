@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import type {
-  LanWorkspaceConnection,
   LanWorkspaceConnectInput,
+  LanWorkspaceProject,
   LanWorkspaceSessionInfo
 } from '../../../../../shared/remote-runtime/lan-workspace/lan-workspace-api'
 import { useAppStore } from '@/store/index'
@@ -22,33 +22,26 @@ import { LanWorkspaceConnectionFields } from './LanWorkspaceConnectionFields'
 import { LanWorkspaceTerminal } from './LanWorkspaceTerminal'
 
 const preferencesKey = 'orca-lan-project'
-const defaultPreferences = {
-  host: '',
-  username: '',
+const defaultPreferences: LanWorkspaceProject = {
   directory: '',
   startCommand: 'npm run dev',
   previewUrl: 'http://127.0.0.1:5173/'
 }
 
-function isSavedPreferences(
-  value: unknown
-): value is Partial<Record<keyof typeof defaultPreferences, unknown>> {
+function isSavedPreferences(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
 }
 
-function readConnectionDraft(): LanWorkspaceConnection {
-  const draft = { ...defaultPreferences, password: '' }
+function readConnectionDraft(key: string, host?: string, username?: string): LanWorkspaceProject {
+  const draft = { ...defaultPreferences }
   try {
-    const saved: unknown = JSON.parse(localStorage.getItem(preferencesKey) ?? 'null')
+    const stored = localStorage.getItem(key)
+    const saved: unknown = JSON.parse(stored ?? localStorage.getItem(preferencesKey) ?? 'null')
     if (isSavedPreferences(saved)) {
-      const fields: (keyof typeof defaultPreferences)[] = [
-        'host',
-        'username',
-        'directory',
-        'startCommand',
-        'previewUrl'
-      ]
-      for (const field of fields) {
+      if (stored === null && (saved.host !== host || saved.username !== username)) {
+        return draft
+      }
+      for (const field of ['directory', 'startCommand', 'previewUrl'] as const) {
         const value = saved[field]
         if (typeof value === 'string') {
           draft[field] = value
@@ -61,9 +54,9 @@ function readConnectionDraft(): LanWorkspaceConnection {
   return draft
 }
 
-function rememberConnection({ password: _password, ...preferences }: LanWorkspaceConnection): void {
+function rememberConnection(key: string, preferences: LanWorkspaceProject): void {
   try {
-    localStorage.setItem(preferencesKey, JSON.stringify(preferences))
+    localStorage.setItem(key, JSON.stringify(preferences))
   } catch {
     // Storage failure should not affect the SSH connection.
   }
@@ -71,11 +64,22 @@ function rememberConnection({ password: _password, ...preferences }: LanWorkspac
 
 type Activity = 'connecting' | 'connecting-terminal' | 'disconnecting' | 'previewing'
 
-export default function LanWorkspaceDialog(): React.JSX.Element | null {
+export default function LanWorkspaceDialog({
+  targetId,
+  targetLabel,
+  host,
+  username
+}: {
+  targetId: string
+  targetLabel: string
+  host?: string
+  username?: string
+}): React.JSX.Element | null {
   const t = useTranslate()
   const api = window.api.lanWorkspace
   const closeModal = useAppStore((state) => state.closeModal)
-  const [draft, setDraft] = useState(readConnectionDraft)
+  const preferenceKey = `${preferencesKey}:${targetId}`
+  const [draft, setDraft] = useState(() => readConnectionDraft(preferenceKey, host, username))
   const [connection, setConnection] = useState<LanWorkspaceSessionInfo | null>(null)
   const [activity, setActivity] = useState<Activity | null>(null)
   const [error, setError] = useState('')
@@ -118,7 +122,7 @@ export default function LanWorkspaceDialog(): React.JSX.Element | null {
     return null
   }
 
-  const setField = (field: keyof LanWorkspaceConnection, value: string): void =>
+  const setField = (field: keyof LanWorkspaceProject, value: string): void =>
     setDraft((previous) => ({ ...previous, [field]: value }))
 
   const showError = (failure: unknown): void =>
@@ -132,10 +136,10 @@ export default function LanWorkspaceDialog(): React.JSX.Element | null {
     setError('')
     setStatus(null)
     try {
-      const input = { ...draft, host: draft.host.trim(), username: draft.username.trim() }
-      const connected = await api.connect({ ...input, mode })
-      rememberConnection(input)
-      setField('password', '')
+      const connected = await api.connect({ ...draft, targetId, mode })
+      if (mode === 'mount') {
+        rememberConnection(preferenceKey, draft)
+      }
       setLogs('')
       setConnection(connected)
     } catch (failure) {
@@ -180,7 +184,7 @@ export default function LanWorkspaceDialog(): React.JSX.Element | null {
     previewing: t('lanWorkspace.previewing', 'Waiting for the Mac development server…')
   }
   const statusLabels = {
-    disconnected: t('lanWorkspace.disconnected', 'SSH disconnected'),
+    disconnected: t('lanWorkspace.sessionClosed', 'Session closed'),
     'preview-ready': t('lanWorkspace.previewReady', 'Mac preview is ready')
   }
   const statusText = activity ? activityLabels[activity] : status && statusLabels[status]
@@ -195,17 +199,18 @@ export default function LanWorkspaceDialog(): React.JSX.Element | null {
         showCloseButton
         className={connection ? 'sm:max-w-4xl' : 'sm:max-w-xl'}
         onInteractOutside={(event) => {
-          if (connection || draft.password) {
+          if (connection) {
             event.preventDefault()
           }
         }}
       >
         <DialogHeader className="mr-6">
-          <DialogTitle>{t('lanWorkspace.addHost', 'Add Remote Local Host')}</DialogTitle>
+          <DialogTitle>{t('lanWorkspace.mountLocalProject', 'Mount local project')}</DialogTitle>
           <DialogDescription>
             {t(
-              'lanWorkspace.description',
-              'Mount a Mac project on a remote host and open a terminal in the mounted folder.'
+              'lanWorkspace.mountOnHost',
+              'Mount a project from this Mac on {{host}} and open a terminal in the mounted folder.',
+              { host: targetLabel }
             )}
           </DialogDescription>
         </DialogHeader>
@@ -267,7 +272,9 @@ export default function LanWorkspaceDialog(): React.JSX.Element | null {
                   disabled={busy}
                   onClick={() => void disconnect()}
                 >
-                  {t('lanWorkspace.disconnect', 'Disconnect')}
+                  {connection.path
+                    ? t('lanWorkspace.unmount', 'Unmount project')
+                    : t('lanWorkspace.closeTerminal', 'Close terminal')}
                 </Button>
                 {connection.path ? (
                   <Button
