@@ -2,24 +2,20 @@ export const LAN_WORKSPACE_CHANNELS = {
   available: 'lan-workspace:available',
   chooseDirectory: 'lan-workspace:choose-directory',
   connect: 'lan-workspace:connect',
-  turn: 'lan-workspace:turn',
+  openTerminal: 'lan-workspace:open-terminal',
+  terminalWrite: 'lan-workspace:terminal-write',
+  terminalResize: 'lan-workspace:terminal-resize',
+  terminalAck: 'lan-workspace:terminal-ack',
+  preview: 'lan-workspace:preview',
   disconnect: 'lan-workspace:disconnect',
   message: 'lan-workspace:message'
 } as const
 
-export const LAN_WORKSPACE_AGENTS = ['codex', 'claude'] as const
+export type LanWorkspaceMount = { path: string; terminalId: string }
 
-export type LanWorkspaceAgent = (typeof LAN_WORKSPACE_AGENTS)[number]
+export type LanWorkspaceTerminalTarget = { terminalId: string }
 
-export type LanWorkspaceMount = {
-  path: string
-  agents: LanWorkspaceAgent[]
-}
-
-export type LanWorkspaceTurn = {
-  agent: LanWorkspaceAgent
-  prompt: string
-}
+export type LanWorkspaceTerminalSize = LanWorkspaceTerminalTarget & { cols: number; rows: number }
 
 export type LanWorkspaceConnection = {
   host: string
@@ -31,15 +27,20 @@ export type LanWorkspaceConnection = {
 }
 
 export type LanWorkspaceMessage =
-  | { kind: 'assistant'; agent: LanWorkspaceAgent; text: string }
+  | { kind: 'terminal-data'; terminalId: string; data: string }
+  | { kind: 'terminal-exit'; terminalId: string; exitCode: number | null }
   | { kind: 'dev'; text: string }
-  | { kind: 'previewing' | 'disconnected' }
+  | { kind: 'disconnected' }
 
 export type LanWorkspaceApi = {
   available(): Promise<boolean>
   chooseDirectory(): Promise<string | null>
   connect(input: LanWorkspaceConnection): Promise<LanWorkspaceMount>
-  turn(input: LanWorkspaceTurn): Promise<void>
+  openTerminal(input: LanWorkspaceTerminalSize): Promise<void>
+  terminalWrite(input: LanWorkspaceTerminalTarget & { data: string }): void
+  terminalResize(input: LanWorkspaceTerminalSize): void
+  terminalAck(input: LanWorkspaceTerminalTarget & { chars: number }): void
+  preview(): Promise<void>
   disconnect(): Promise<void>
   onMessage(listener: (message: LanWorkspaceMessage) => void): () => void
 }

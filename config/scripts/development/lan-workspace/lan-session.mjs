@@ -1,18 +1,14 @@
-import { createHash } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { createRequire } from 'node:module'
 import { realpath, stat } from 'node:fs/promises'
 import { isIP } from 'node:net'
 import { isAbsolute } from 'node:path'
-import { createInterface } from 'node:readline'
 import { setTimeout as delay } from 'node:timers/promises'
 import { serveProjectFiles } from './project-sftp.mjs'
 import { prepareRemoteMount, readRemoteMount } from './lan-workspace-mount.mjs'
-import { discoverRemoteAgents, getRemoteAgent, readRemoteAgents } from './lan-workspace-agent.mjs'
+import { LanWorkspacePty } from './lan-workspace-pty.mjs'
 
 const { Client } = createRequire(import.meta.url)('ssh2')
-const localDevInstructions =
-  'Edit the files in the current workspace. This is a live mount of my Mac project. ' +
-  'Leave dependency installation, build, dev server startup and browser preview to the Mac client.'
 
 function appendText(previous, chunk) {
   return (previous + chunk.toString()).slice(-8192)
@@ -23,7 +19,7 @@ function closeSshChannel(channel) {
   channel.destroy()
 }
 
-function runRemote(ssh, command, { input, timeout = 10_000, onOutput } = {}) {
+function runRemote(ssh, command, { timeout = 10_000 } = {}) {
   return new Promise((resolve, reject) => {
     let channel
     let stdout = ''
@@ -55,19 +51,14 @@ function runRemote(ssh, command, { input, timeout = 10_000, onOutput } = {}) {
         clearTimeout(timer)
         reject(channelError)
       })
-      if (onOutput) {
-        const lines = createInterface({ input: channel })
-        lines.on('line', onOutput)
-      } else {
-        channel.on('data', (chunk) => {
-          stdout = appendText(stdout, chunk)
-        })
-      }
+      channel.on('data', (chunk) => {
+        stdout = appendText(stdout, chunk)
+      })
       channel.once('close', (code) => {
         clearTimeout(timer)
         resolve({ code, stdout: stdout.trim(), stderr: stderr.trim() })
       })
-      channel.end(input)
+      channel.end()
     })
   })
 }
@@ -85,10 +76,21 @@ export async function validateProject(config) {
   if (typeof config.directory !== 'string' || !isAbsolute(config.directory)) {
     throw new Error('Choose an absolute path to the project on this Mac.')
   }
-  if (typeof config.startCommand !== 'string' || !config.startCommand.trim()) {
+  const directory = await realpath(config.directory)
+  if (!(await stat(directory)).isDirectory() || directory === '/') {
+    throw new Error('Choose a project directory.')
+  }
+  return directory
+}
+
+export function validatePreview({ directory, startCommand, previewUrl }) {
+  if (typeof startCommand !== 'string' || !startCommand.trim()) {
     throw new Error('Enter the local project start command.')
   }
-  const url = new URL(config.previewUrl)
+  if (typeof previewUrl !== 'string' || !URL.canParse(previewUrl)) {
+    throw new Error('Use a local HTTP or HTTPS preview URL.')
+  }
+  const url = new URL(previewUrl)
   if (
     !['http:', 'https:'].includes(url.protocol) ||
     !['localhost', '127.0.0.1', '[::1]'].includes(url.hostname) ||
@@ -97,11 +99,7 @@ export async function validateProject(config) {
   ) {
     throw new Error('Use a local HTTP or HTTPS preview URL.')
   }
-  const directory = await realpath(config.directory)
-  if (!(await stat(directory)).isDirectory() || directory === '/') {
-    throw new Error('Choose a project directory.')
-  }
-  return { directory, startCommand: config.startCommand.trim(), url: url.href }
+  return { directory, startCommand: startCommand.trim(), url: url.href }
 }
 
 export class LanSession {
@@ -110,9 +108,8 @@ export class LanSession {
   #mountChannel
   #closed = false
   #mounted = false
-  #running = false
-  #agents = []
-  #sessions = new Map()
+  terminalId = randomUUID()
+  terminal = new LanWorkspacePty()
 
   constructor({ verifyHost, onDisconnect = () => {} }) {
     this.verifyHost = verifyHost
@@ -191,71 +188,24 @@ export class LanSession {
         if (mountFailure || this.#closed) {
           throw mountFailure || new Error('SSH connection closed.')
         }
-        const agents = readRemoteAgents(await runRemote(this.#ssh, discoverRemoteAgents))
-        if (mountFailure || this.#closed) {
-          throw mountFailure || new Error('SSH connection closed.')
-        }
-        this.#agents = agents
         this.#mounted = true
-        return { path: mount.path, agents }
+        return { path: mount.path, terminalId: this.terminalId }
       }
       await delay(200)
     }
     throw new Error(mountStderr || 'Remote SSHFS mount did not become ready.')
   }
 
-  async runTurn(agent, prompt, onMessage) {
-    if (!this.#mounted || this.#closed || !this.#mountChannel || this.#mountChannel.destroyed) {
+  async openTerminal(input, emit) {
+    if (!this.#mounted || this.#closed || this.#mountChannel?.destroyed) {
       throw new Error('Connect and mount the project first.')
     }
-    if (this.#running) {
-      throw new Error('Wait for the current turn to finish.')
-    }
-    const adapter = getRemoteAgent(agent)
-    if (!adapter || !this.#agents.includes(agent)) {
-      throw new Error('Choose an AI CLI available on the remote host.')
-    }
-    this.#running = true
-    try {
-      const command = `${this.#mount.taskDirectory} && exec ${adapter.command(this.#sessions.get(agent))}`
-      let completed = false
-      let turnError
-      const result = await runRemote(this.#ssh, command, {
-        input: `${localDevInstructions}\n\n${prompt}\n`,
-        timeout: 30 * 60_000,
-        onOutput: (line) => {
-          let event
-          try {
-            event = JSON.parse(line)
-          } catch {
-            return
-          }
-          const update = adapter.parse(event)
-          if (
-            typeof update.sessionId === 'string' &&
-            /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/.test(update.sessionId)
-          ) {
-            this.#sessions.set(agent, update.sessionId)
-          }
-          if (typeof update.answer === 'string' && update.answer) {
-            onMessage(update.answer)
-          }
-          if (update.completed) {
-            completed = true
-          }
-          if (update.error) {
-            turnError = update.error
-          }
-        }
-      })
-      if (!completed || result.code !== 0 || turnError) {
-        throw new Error(
-          turnError || result.stderr || `${adapter.name} did not report a successful turn.`
-        )
-      }
-    } finally {
-      this.#running = false
-    }
+    await this.terminal.open(
+      this.#ssh,
+      `${this.#mount.shellDirectory} && exec "\${SHELL:-/bin/sh}" -i`,
+      input,
+      emit
+    )
   }
 
   async close() {
@@ -264,6 +214,7 @@ export class LanSession {
     }
     this.#closed = true
     this.#mounted = false
+    this.terminal.close()
     if (this.#mount) {
       await runRemote(this.#ssh, this.#mount.cleanup, { timeout: 3_000 }).catch(() => {})
     }

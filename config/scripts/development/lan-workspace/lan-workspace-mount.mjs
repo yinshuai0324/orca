@@ -151,7 +151,7 @@ export function readRemoteMount({ code, stdout, stderr }) {
     path,
     start: `${remoteToolPath}; exec sshfs -f -o ${options} :/ ${target}`,
     check: `${remoteToolPath}\n${check}\n${ready}`,
-    taskDirectory: `${remoteToolPath}\n${check}\n${ready} && cd -- ${target}`,
+    shellDirectory: `${remoteToolPath}\n${check}\n${ready} && cd -- ${target}`,
     cleanup: `
       ${remoteToolPath}
       ${check}

@@ -1,30 +1,33 @@
-import { LanSession, validateProject } from './lan-session.mjs'
+import { LanSession, validatePreview, validateProject } from './lan-session.mjs'
 import { LocalPreview } from './local-preview.mjs'
 
 export function createLanWorkspaceController({ verifyHost, openPreview, emit }) {
   let session
   let preview
-  let busy = false
+  let previewSettings
+  let connecting = false
+  let previewing = false
   let generation = 0
 
   async function disconnect() {
     generation += 1
     const current = session
     session = undefined
+    previewSettings = undefined
     preview?.close()
     preview = undefined
     await current?.close()
   }
 
   async function connect(input) {
-    if (busy || session) {
+    if (connecting || session) {
       throw new Error('Disconnect the current workspace first.')
     }
-    busy = true
-    const connecting = generation
+    connecting = true
+    const attempt = generation
     try {
-      const project = await validateProject(input)
-      if (generation !== connecting) {
+      const directory = await validateProject(input)
+      if (generation !== attempt) {
         throw new Error('SSH connection closed.')
       }
       const connection = new LanSession({
@@ -37,54 +40,73 @@ export function createLanWorkspaceController({ verifyHost, openPreview, emit }) 
         }
       })
       session = connection
-      const mount = await connection.open(input, project.directory)
+      const mount = await connection.open(input, directory)
       if (session !== connection) {
         throw new Error('SSH connection closed.')
       }
-      preview = new LocalPreview(project, openPreview, (text) => {
-        if (session === connection) {
-          emit({ kind: 'dev', text })
-        }
-      })
+      previewSettings = {
+        directory,
+        startCommand: input.startCommand,
+        previewUrl: input.previewUrl
+      }
       return mount
     } catch (error) {
       await disconnect()
       throw error
     } finally {
-      busy = false
+      connecting = false
     }
   }
 
-  async function turn(input) {
-    const { agent, prompt } = input ?? {}
-    if (
-      busy ||
-      !session ||
-      !preview ||
-      typeof prompt !== 'string' ||
-      !prompt.trim() ||
-      prompt.length > 32_000
-    ) {
-      throw new Error('Connect a workspace and enter a task of up to 32,000 characters.')
+  async function startPreview() {
+    if (!session || !previewSettings || previewing) {
+      throw new Error('Connect a workspace before opening the local preview.')
     }
-    busy = true
-    const runningSession = session
-    const runningPreview = preview
+    const connection = session
+    previewing = true
     try {
-      await runningSession.runTurn(agent, prompt, (text) => {
-        if (session === runningSession) {
-          emit({ kind: 'assistant', agent, text })
+      preview ??= new LocalPreview(validatePreview(previewSettings), openPreview, (text) => {
+        if (session === connection) {
+          emit({ kind: 'dev', text })
         }
       })
-      if (session !== runningSession) {
-        throw new Error('SSH connection closed.')
-      }
-      emit({ kind: 'previewing' })
-      await runningPreview.open()
+      await preview.open()
     } finally {
-      busy = false
+      previewing = false
     }
   }
 
-  return { connect, turn, disconnect }
+  async function openTerminal(input) {
+    const current = session
+    if (!current || current.terminalId !== input?.terminalId) {
+      throw new Error('Connect a workspace before opening the remote terminal.')
+    }
+    await current.openTerminal(input, (event) => {
+      if (session === current) {
+        emit({ ...event, terminalId: current.terminalId })
+      }
+    })
+  }
+
+  return {
+    connect,
+    openTerminal,
+    terminalWrite(input) {
+      if (session && session.terminalId === input?.terminalId) {
+        session.terminal.write(input.data)
+      }
+    },
+    terminalResize(input) {
+      if (session && session.terminalId === input?.terminalId) {
+        session.terminal.resize(input)
+      }
+    },
+    terminalAck(input) {
+      if (session && session.terminalId === input?.terminalId) {
+        session.terminal.ack(input.chars)
+      }
+    },
+    preview: startPreview,
+    disconnect
+  }
 }

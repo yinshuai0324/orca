@@ -3,6 +3,7 @@ import { FolderOpen } from 'lucide-react'
 import type { LanWorkspaceConnection } from '../../../../../shared/remote-runtime/lan-workspace/lan-workspace-api'
 import { useTranslate } from '@/i18n/use-translate'
 import { Button } from '@/components/ui/button'
+import { DialogDisclosure } from '@/components/ui/dialog-parts'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
@@ -12,6 +13,7 @@ function ConnectionField({
   draft,
   onChange,
   children,
+  required = true,
   ...inputProps
 }: Omit<ComponentProps<typeof Input>, 'id' | 'onChange' | 'value'> & {
   label: string
@@ -29,7 +31,7 @@ function ConnectionField({
           id={id}
           value={draft[field]}
           onChange={(event) => onChange(field, event.target.value)}
-          required
+          required={required}
         />
         {children}
       </div>
@@ -92,21 +94,25 @@ export function LanWorkspaceConnectionFields({
           'The remote host can edit this folder. Environment files, Git metadata, dependencies, and links stay on your Mac.'
         )}
       </p>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <ConnectionField
-          {...bindings}
-          field="startCommand"
-          label={t('lanWorkspace.command', 'Mac start command')}
-          spellCheck={false}
-        />
-        <ConnectionField
-          {...bindings}
-          field="previewUrl"
-          label={t('lanWorkspace.previewUrl', 'Preview URL')}
-          type="url"
-          spellCheck={false}
-        />
-      </div>
+      <DialogDisclosure label={t('lanWorkspace.previewSettings', 'Mac preview settings')}>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <ConnectionField
+            {...bindings}
+            field="startCommand"
+            label={t('lanWorkspace.command', 'Mac start command')}
+            spellCheck={false}
+            required={false}
+          />
+          <ConnectionField
+            {...bindings}
+            field="previewUrl"
+            label={t('lanWorkspace.previewUrl', 'Preview URL')}
+            inputMode="url"
+            spellCheck={false}
+            required={false}
+          />
+        </div>
+      </DialogDisclosure>
     </fieldset>
   )
 }

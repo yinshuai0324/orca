@@ -1,4 +1,12 @@
-import { app, BrowserWindow, dialog, ipcMain, shell, type IpcMainInvokeEvent } from 'electron'
+import {
+  app,
+  BrowserWindow,
+  dialog,
+  ipcMain,
+  shell,
+  type IpcMainEvent,
+  type IpcMainInvokeEvent
+} from 'electron'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import {
@@ -6,7 +14,8 @@ import {
   type LanWorkspaceConnection,
   type LanWorkspaceMessage,
   type LanWorkspaceMount,
-  type LanWorkspaceTurn
+  type LanWorkspaceTerminalSize,
+  type LanWorkspaceApi
 } from '../../../shared/remote-runtime/lan-workspace/lan-workspace-api'
 import { translateMain } from '../../i18n/main-i18n'
 import { isBackgroundLaunch } from '../../window/activation/foreground-activation-policy'
@@ -15,7 +24,11 @@ import { translateLanWorkspacePrerequisiteError } from './lan-workspace-prerequi
 
 type LanWorkspaceController = {
   connect(input: LanWorkspaceConnection): Promise<LanWorkspaceMount>
-  turn(input: LanWorkspaceTurn): Promise<void>
+  openTerminal: LanWorkspaceApi['openTerminal']
+  terminalWrite: LanWorkspaceApi['terminalWrite']
+  terminalResize: LanWorkspaceApi['terminalResize']
+  terminalAck: LanWorkspaceApi['terminalAck']
+  preview(): Promise<void>
   disconnect(): Promise<void>
 }
 
@@ -27,7 +40,7 @@ type LanWorkspaceModule = {
   }): LanWorkspaceController
 }
 
-function trustedWindow(event: IpcMainInvokeEvent): BrowserWindow | null {
+function trustedWindow(event: IpcMainEvent | IpcMainInvokeEvent): BrowserWindow | null {
   if (
     process.platform !== 'darwin' ||
     app.isPackaged ||
@@ -130,13 +143,25 @@ export function registerLanWorkspaceHandlers(): void {
       throw translateLanWorkspacePrerequisiteError(error)
     })
   })
-  ipcMain.handle(channels.turn, async (event, input: LanWorkspaceTurn) => {
+  const requireController = (event: IpcMainInvokeEvent): LanWorkspaceController => {
     const controller = controllers.get(requireWindow(event))
     if (!controller) {
       throw new Error('Connect and mount the project first.')
     }
-    await controller.turn(input)
-  })
+    return controller
+  }
+  ipcMain.handle(channels.openTerminal, (event, input: LanWorkspaceTerminalSize) =>
+    requireController(event).openTerminal(input)
+  )
+  ipcMain.handle(channels.preview, (event) => requireController(event).preview())
+  for (const method of ['terminalWrite', 'terminalResize', 'terminalAck'] as const) {
+    ipcMain.on(channels[method], (event, input) => {
+      const owner = trustedWindow(event)
+      if (owner) {
+        controllers.get(owner)?.[method](input)
+      }
+    })
+  }
   ipcMain.handle(channels.disconnect, async (event) => {
     await controllers.get(requireWindow(event))?.disconnect()
   })
