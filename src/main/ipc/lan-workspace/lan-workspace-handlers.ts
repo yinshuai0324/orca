@@ -11,9 +11,9 @@ import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import {
   LAN_WORKSPACE_CHANNELS,
-  type LanWorkspaceConnection,
+  type LanWorkspaceConnectInput,
   type LanWorkspaceMessage,
-  type LanWorkspaceMount,
+  type LanWorkspaceSessionInfo,
   type LanWorkspaceTerminalSize,
   type LanWorkspaceApi
 } from '../../../shared/remote-runtime/lan-workspace/lan-workspace-api'
@@ -23,7 +23,7 @@ import { isTrustedUIRenderer } from '../ui'
 import { translateLanWorkspacePrerequisiteError } from './lan-workspace-prerequisite-error'
 
 type LanWorkspaceController = {
-  connect(input: LanWorkspaceConnection): Promise<LanWorkspaceMount>
+  connect(input: LanWorkspaceConnectInput): Promise<LanWorkspaceSessionInfo>
   openTerminal: LanWorkspaceApi['openTerminal']
   terminalWrite: LanWorkspaceApi['terminalWrite']
   terminalResize: LanWorkspaceApi['terminalResize']
@@ -72,7 +72,7 @@ export function registerLanWorkspaceHandlers(): void {
     })
     return result.filePaths[0] ?? null
   })
-  ipcMain.handle(channels.connect, async (event, input: LanWorkspaceConnection) => {
+  ipcMain.handle(channels.connect, async (event, input: LanWorkspaceConnectInput) => {
     const owner = requireWindow(event)
     let controller = controllers.get(owner)
     if (!controller) {

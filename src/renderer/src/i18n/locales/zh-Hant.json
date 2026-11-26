@@ -1923,7 +1923,11 @@
     "terminalEnded": "遠端終端機已結束。重新連線後可再次開啟。",
     "terminalUnavailable": "Orca 無法開啟遠端終端機。",
     "previewSettings": "本機預覽設定",
-    "startPreview": "在本機啟動並預覽"
+    "startPreview": "在本機啟動並預覽",
+    "fsExtensionUnavailable": "遠端 Mac 無法載入 macFUSE 檔案系統擴充功能。請在遠端以 SSH 登入的同一帳號啟用該擴充功能，再重試掛載。也可以選擇「僅開啟終端機」。",
+    "connectingTerminal": "正在連線 SSH…",
+    "homeTerminal": "已連線至遠端個人資料夾。",
+    "terminalOnly": "僅開啟終端機"
   },
   "menu": {
     "checkForUpdates": "檢查更新...",

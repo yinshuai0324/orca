@@ -149,6 +149,7 @@ export function readRemoteMount({ code, stdout, stderr }) {
 
   return {
     path,
+    usesFsKit: kind === 'mac-fskit',
     start: `${remoteToolPath}; exec sshfs -f -o ${options} :/ ${target}`,
     check: `${remoteToolPath}\n${check}\n${ready}`,
     shellDirectory: `${remoteToolPath}\n${check}\n${ready} && cd -- ${target}`,
@@ -162,4 +163,19 @@ export function readRemoteMount({ code, stdout, stderr }) {
       rmdir -- ${target}
     `
   }
+}
+
+export function mountFailureError(mount, detail) {
+  if (
+    mount.usesFsKit &&
+    /file system extension (?:not found|not enabled)|file system named macfuse not found/i.test(
+      detail
+    )
+  ) {
+    return new LanWorkspacePrerequisiteError({
+      reason: 'fs-extension-unavailable',
+      message: detail
+    })
+  }
+  return new Error(detail)
 }

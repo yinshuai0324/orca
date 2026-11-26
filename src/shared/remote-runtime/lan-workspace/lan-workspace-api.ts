@@ -11,7 +11,7 @@ export const LAN_WORKSPACE_CHANNELS = {
   message: 'lan-workspace:message'
 } as const
 
-export type LanWorkspaceMount = { path: string; terminalId: string }
+export type LanWorkspaceSessionInfo = { path: string | null; terminalId: string }
 
 export type LanWorkspaceTerminalTarget = { terminalId: string }
 
@@ -26,6 +26,8 @@ export type LanWorkspaceConnection = {
   previewUrl: string
 }
 
+export type LanWorkspaceConnectInput = LanWorkspaceConnection & { mode: 'mount' | 'terminal' }
+
 export type LanWorkspaceMessage =
   | { kind: 'terminal-data'; terminalId: string; data: string }
   | { kind: 'terminal-exit'; terminalId: string; exitCode: number | null }
@@ -35,7 +37,7 @@ export type LanWorkspaceMessage =
 export type LanWorkspaceApi = {
   available(): Promise<boolean>
   chooseDirectory(): Promise<string | null>
-  connect(input: LanWorkspaceConnection): Promise<LanWorkspaceMount>
+  connect(input: LanWorkspaceConnectInput): Promise<LanWorkspaceSessionInfo>
   openTerminal(input: LanWorkspaceTerminalSize): Promise<void>
   terminalWrite(input: LanWorkspaceTerminalTarget & { data: string }): void
   terminalResize(input: LanWorkspaceTerminalSize): void

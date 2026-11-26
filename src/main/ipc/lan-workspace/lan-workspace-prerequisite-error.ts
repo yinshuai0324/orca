@@ -45,6 +45,13 @@ export function translateLanWorkspacePrerequisiteError(error: unknown): unknown 
           'SSH connected. Install macFUSE on the remote Mac with brew install --cask sshfs-mac.'
         )
       )
+    case 'fs-extension-unavailable':
+      return new Error(
+        translateMain(
+          'lanWorkspace.fsExtensionUnavailable',
+          'The remote Mac could not load the macFUSE file system extension. Enable it for the SSH user in System Settings, then retry mounting. You can also open the terminal only.'
+        )
+      )
     case 'unsupported-os':
       return new Error(
         translateMain(

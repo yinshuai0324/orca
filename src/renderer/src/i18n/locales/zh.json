@@ -1538,7 +1538,11 @@
     "terminalEnded": "远程终端已退出。重新连接后可再次打开。",
     "terminalUnavailable": "Orca 无法打开远程终端。",
     "previewSettings": "本机预览设置",
-    "startPreview": "本机启动并预览"
+    "startPreview": "本机启动并预览",
+    "fsExtensionUnavailable": "远端 Mac 无法加载 macFUSE 文件系统扩展。请在远端以 SSH 登录的同一账号启用该扩展，然后重试挂载。也可以选择「仅打开终端」。",
+    "connectingTerminal": "正在连接 SSH…",
+    "homeTerminal": "已连接到远端主目录。",
+    "terminalOnly": "仅打开终端"
   },
   "menu": {
     "checkForUpdates": "检查更新...",

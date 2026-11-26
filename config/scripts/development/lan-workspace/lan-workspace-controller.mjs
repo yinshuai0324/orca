@@ -1,4 +1,9 @@
-import { LanSession, validatePreview, validateProject } from './lan-session.mjs'
+import {
+  LanSession,
+  validatePreview,
+  validateProject,
+  validateSshConnection
+} from './lan-session.mjs'
 import { LocalPreview } from './local-preview.mjs'
 
 export function createLanWorkspaceController({ verifyHost, openPreview, emit }) {
@@ -26,7 +31,8 @@ export function createLanWorkspaceController({ verifyHost, openPreview, emit }) 
     connecting = true
     const attempt = generation
     try {
-      const directory = await validateProject(input)
+      validateSshConnection(input)
+      const directory = input.mode === 'terminal' ? null : await validateProject(input)
       if (generation !== attempt) {
         throw new Error('SSH connection closed.')
       }
@@ -44,10 +50,12 @@ export function createLanWorkspaceController({ verifyHost, openPreview, emit }) 
       if (session !== connection) {
         throw new Error('SSH connection closed.')
       }
-      previewSettings = {
-        directory,
-        startCommand: input.startCommand,
-        previewUrl: input.previewUrl
+      if (directory !== null) {
+        previewSettings = {
+          directory,
+          startCommand: input.startCommand,
+          previewUrl: input.previewUrl
+        }
       }
       return mount
     } catch (error) {

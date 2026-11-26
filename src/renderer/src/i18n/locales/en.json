@@ -2222,7 +2222,11 @@
     "terminalEnded": "Remote terminal ended. Reconnect to open it again.",
     "terminalUnavailable": "Orca could not open the remote terminal.",
     "previewSettings": "Mac preview settings",
-    "startPreview": "Start and preview on this Mac"
+    "startPreview": "Start and preview on this Mac",
+    "fsExtensionUnavailable": "The remote Mac could not load the macFUSE file system extension. Enable it for the SSH user in System Settings, then retry mounting. You can also open the terminal only.",
+    "connectingTerminal": "Connecting over SSH…",
+    "homeTerminal": "Connected to the remote home directory.",
+    "terminalOnly": "Open terminal only"
   },
   "menu": {
     "checkForUpdates": "Check for Updates...",

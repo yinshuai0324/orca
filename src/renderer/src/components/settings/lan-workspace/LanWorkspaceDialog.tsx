@@ -1,8 +1,9 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import type {
   LanWorkspaceConnection,
-  LanWorkspaceMount
+  LanWorkspaceConnectInput,
+  LanWorkspaceSessionInfo
 } from '../../../../../shared/remote-runtime/lan-workspace/lan-workspace-api'
 import { useAppStore } from '@/store/index'
 import { useTranslate } from '@/i18n/use-translate'
@@ -68,14 +69,14 @@ function rememberConnection({ password: _password, ...preferences }: LanWorkspac
   }
 }
 
-type Activity = 'connecting' | 'disconnecting' | 'previewing'
+type Activity = 'connecting' | 'connecting-terminal' | 'disconnecting' | 'previewing'
 
 export default function LanWorkspaceDialog(): React.JSX.Element | null {
   const t = useTranslate()
   const api = window.api.lanWorkspace
   const closeModal = useAppStore((state) => state.closeModal)
   const [draft, setDraft] = useState(readConnectionDraft)
-  const [mount, setMount] = useState<LanWorkspaceMount | null>(null)
+  const [connection, setConnection] = useState<LanWorkspaceSessionInfo | null>(null)
   const [activity, setActivity] = useState<Activity | null>(null)
   const [error, setError] = useState('')
   const [status, setStatus] = useState<'disconnected' | 'preview-ready' | null>(null)
@@ -88,7 +89,7 @@ export default function LanWorkspaceDialog(): React.JSX.Element | null {
     }
     const unsubscribe = api.onMessage((message) => {
       if (message.kind === 'disconnected') {
-        setMount(null)
+        setConnection(null)
         setStatus('disconnected')
       } else if (message.kind === 'dev') {
         setLogs((previous) => (previous + message.text).slice(-48_000))
@@ -110,21 +111,20 @@ export default function LanWorkspaceDialog(): React.JSX.Element | null {
   const showError = (failure: unknown): void =>
     setError(readIpcErrorDetail(failure) ?? String(failure))
 
-  const connect = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
-    event.preventDefault()
-    if (busy || mount) {
+  const connect = async (mode: LanWorkspaceConnectInput['mode']): Promise<void> => {
+    if (busy || connection) {
       return
     }
-    setActivity('connecting')
+    setActivity(mode === 'mount' ? 'connecting' : 'connecting-terminal')
     setError('')
     setStatus(null)
     try {
       const input = { ...draft, host: draft.host.trim(), username: draft.username.trim() }
-      const mounted = await api.connect(input)
+      const connected = await api.connect({ ...input, mode })
       rememberConnection(input)
       setField('password', '')
       setLogs('')
-      setMount(mounted)
+      setConnection(connected)
     } catch (failure) {
       showError(failure)
     }
@@ -136,7 +136,7 @@ export default function LanWorkspaceDialog(): React.JSX.Element | null {
     setError('')
     try {
       await api.disconnect()
-      setMount(null)
+      setConnection(null)
       setStatus('disconnected')
     } catch (failure) {
       showError(failure)
@@ -145,7 +145,7 @@ export default function LanWorkspaceDialog(): React.JSX.Element | null {
   }
 
   const startPreview = async (): Promise<void> => {
-    if (busy || !mount) {
+    if (busy || !connection?.path) {
       return
     }
     setActivity('previewing')
@@ -162,6 +162,7 @@ export default function LanWorkspaceDialog(): React.JSX.Element | null {
 
   const activityLabels = {
     connecting: t('lanWorkspace.connecting', 'Connecting and mounting…'),
+    'connecting-terminal': t('lanWorkspace.connectingTerminal', 'Connecting over SSH…'),
     disconnecting: t('lanWorkspace.disconnecting', 'Disconnecting…'),
     previewing: t('lanWorkspace.previewing', 'Waiting for the Mac development server…')
   }
@@ -179,9 +180,9 @@ export default function LanWorkspaceDialog(): React.JSX.Element | null {
         scrollable
         busy={busy}
         showCloseButton
-        className={mount ? 'sm:max-w-4xl' : 'sm:max-w-xl'}
+        className={connection ? 'sm:max-w-4xl' : 'sm:max-w-xl'}
         onInteractOutside={(event) => {
-          if (mount || draft.password) {
+          if (connection || draft.password) {
             event.preventDefault()
           }
         }}
@@ -195,22 +196,32 @@ export default function LanWorkspaceDialog(): React.JSX.Element | null {
             )}
           </DialogDescription>
         </DialogHeader>
-        <form className="grid gap-3" onSubmit={connect}>
-          {mount ? (
+        <form
+          className="grid gap-3"
+          onSubmit={(event) => {
+            event.preventDefault()
+            void connect('mount')
+          }}
+        >
+          {connection ? (
             <>
               <p className="min-w-0 text-sm break-words text-muted-foreground">
-                {t('lanWorkspace.mountedAt', 'Mounted at {{path}}', { path: mount.path })}
+                {connection.path
+                  ? t('lanWorkspace.mountedAt', 'Mounted at {{path}}', { path: connection.path })
+                  : t('lanWorkspace.homeTerminal', 'Connected to the remote home directory.')}
               </p>
               <LanWorkspaceTerminal
-                key={mount.terminalId}
+                key={connection.terminalId}
                 api={api}
-                terminalId={mount.terminalId}
+                terminalId={connection.terminalId}
               />
-              <DialogDisclosure label={t('lanWorkspace.devLog', 'Mac development server log')}>
-                <pre className="max-h-36 overflow-auto scrollbar-sleek font-mono text-xs whitespace-pre-wrap">
-                  {logs || t('lanWorkspace.logEmpty', 'Waiting for output…')}
-                </pre>
-              </DialogDisclosure>
+              {connection.path ? (
+                <DialogDisclosure label={t('lanWorkspace.devLog', 'Mac development server log')}>
+                  <pre className="max-h-36 overflow-auto scrollbar-sleek font-mono text-xs whitespace-pre-wrap">
+                    {logs || t('lanWorkspace.logEmpty', 'Waiting for output…')}
+                  </pre>
+                </DialogDisclosure>
+              ) : null}
             </>
           ) : (
             <LanWorkspaceConnectionFields
@@ -234,27 +245,44 @@ export default function LanWorkspaceDialog(): React.JSX.Element | null {
           )}
           {error && <DialogError>{error}</DialogError>}
           <DialogFooter>
-            {mount ? (
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                disabled={busy}
-                onClick={() => void disconnect()}
-              >
-                {t('lanWorkspace.disconnect', 'Disconnect')}
-              </Button>
+            {connection ? (
+              <>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={busy}
+                  onClick={() => void disconnect()}
+                >
+                  {t('lanWorkspace.disconnect', 'Disconnect')}
+                </Button>
+                {connection.path ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={busy}
+                    onClick={() => void startPreview()}
+                  >
+                    {t('lanWorkspace.startPreview', 'Start and preview on this Mac')}
+                  </Button>
+                ) : null}
+              </>
             ) : (
-              <DialogCancel />
-            )}
-            {mount ? (
-              <Button type="button" size="sm" disabled={busy} onClick={() => void startPreview()}>
-                {t('lanWorkspace.startPreview', 'Start and preview on this Mac')}
-              </Button>
-            ) : (
-              <Button type="submit" size="sm" disabled={busy}>
-                {t('lanWorkspace.connect', 'Connect and mount')}
-              </Button>
+              <>
+                <DialogCancel />
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={busy}
+                  onClick={() => void connect('terminal')}
+                >
+                  {t('lanWorkspace.terminalOnly', 'Open terminal only')}
+                </Button>
+                <Button type="submit" size="sm" disabled={busy}>
+                  {t('lanWorkspace.connect', 'Connect and mount')}
+                </Button>
+              </>
             )}
           </DialogFooter>
         </form>

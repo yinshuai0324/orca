@@ -5,7 +5,12 @@ import { isIP } from 'node:net'
 import { isAbsolute } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import { serveProjectFiles } from './project-sftp.mjs'
-import { prepareRemoteMount, readRemoteMount } from './lan-workspace-mount.mjs'
+import {
+  mountFailureError,
+  prepareRemoteMount,
+  readRemoteMount,
+  remoteToolPath
+} from './lan-workspace-mount.mjs'
 import { LanWorkspacePty } from './lan-workspace-pty.mjs'
 
 const { Client } = createRequire(import.meta.url)('ssh2')
@@ -63,7 +68,7 @@ function runRemote(ssh, command, { timeout = 10_000 } = {}) {
   })
 }
 
-export async function validateProject(config) {
+export function validateSshConnection(config) {
   if (
     !isIP(config?.host ?? '') ||
     typeof config.username !== 'string' ||
@@ -73,6 +78,9 @@ export async function validateProject(config) {
   ) {
     throw new Error('Enter the remote IP address, SSH username, and password.')
   }
+}
+
+export async function validateProject(config) {
   if (typeof config.directory !== 'string' || !isAbsolute(config.directory)) {
     throw new Error('Choose an absolute path to the project on this Mac.')
   }
@@ -107,6 +115,7 @@ export class LanSession {
   #mount
   #mountChannel
   #closed = false
+  #authenticated = false
   #mounted = false
   terminalId = randomUUID()
   terminal = new LanWorkspacePty()
@@ -152,6 +161,14 @@ export class LanSession {
       })
     })
 
+    if (this.#closed) {
+      throw new Error('SSH connection closed.')
+    }
+    this.#authenticated = true
+    if (projectDirectory === null) {
+      return { path: null, terminalId: this.terminalId }
+    }
+
     const mount = readRemoteMount(await runRemote(this.#ssh, prepareRemoteMount))
     this.#mount = mount
     let mountFailure
@@ -164,7 +181,7 @@ export class LanSession {
       mountStderr = appendText(mountStderr, chunk)
     })
     channel.once('close', () => {
-      mountFailure = new Error(mountStderr || 'Remote SSHFS closed.')
+      mountFailure = mountFailureError(mount, mountStderr || 'Remote SSHFS closed.')
       if (this.#mounted && !this.#closed) {
         void this.close()
         this.onDisconnect()
@@ -193,19 +210,15 @@ export class LanSession {
       }
       await delay(200)
     }
-    throw new Error(mountStderr || 'Remote SSHFS mount did not become ready.')
+    throw mountFailureError(mount, mountStderr || 'Remote SSHFS mount did not become ready.')
   }
 
   async openTerminal(input, emit) {
-    if (!this.#mounted || this.#closed || this.#mountChannel?.destroyed) {
-      throw new Error('Connect and mount the project first.')
+    if (!this.#authenticated || this.#closed || (this.#mount && !this.#mounted)) {
+      throw new Error('Connect to the remote host first.')
     }
-    await this.terminal.open(
-      this.#ssh,
-      `${this.#mount.shellDirectory} && exec "\${SHELL:-/bin/sh}" -i`,
-      input,
-      emit
-    )
+    const directory = this.#mount?.shellDirectory ?? `${remoteToolPath}\ncd -- "$HOME"`
+    await this.terminal.open(this.#ssh, `${directory} && exec "\${SHELL:-/bin/sh}" -i`, input, emit)
   }
 
   async close() {
@@ -213,6 +226,7 @@ export class LanSession {
       return
     }
     this.#closed = true
+    this.#authenticated = false
     this.#mounted = false
     this.terminal.close()
     if (this.#mount) {
