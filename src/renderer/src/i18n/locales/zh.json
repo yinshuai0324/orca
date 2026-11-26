@@ -1542,7 +1542,13 @@
     "fsExtensionUnavailable": "远端 Mac 无法加载 macFUSE 文件系统扩展。请在远端以 SSH 登录的同一账号启用该扩展，然后重试挂载。也可以选择「仅打开终端」。",
     "connectingTerminal": "正在连接 SSH…",
     "homeTerminal": "已连接到远端主目录。",
-    "terminalOnly": "仅打开终端"
+    "terminalOnly": "仅打开终端",
+    "smbPreviewNote": "远端 Mac 第一次保存文件后，Orca 会在本机运行启动命令并打开预览。任一字段留空可关闭自动预览。",
+    "smbHelper": "Orca 无法准备本机 SMB 助手。",
+    "smbForward": "远端 SSH 服务未允许 SMB 反向转发。",
+    "smbForwardBind": "远端 SSH 服务未将 SMB 转发限制在回环地址。",
+    "missingMountSmbfs": "远端 Mac 找不到自带的 mount_smbfs 命令。",
+    "smbMount": "SSH 已连接，但远端 Mac 无法通过 SMB 挂载项目。"
   },
   "menu": {
     "checkForUpdates": "检查更新...",

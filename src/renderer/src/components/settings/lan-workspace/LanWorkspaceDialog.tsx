@@ -91,8 +91,21 @@ export default function LanWorkspaceDialog(): React.JSX.Element | null {
       if (message.kind === 'disconnected') {
         setConnection(null)
         setStatus('disconnected')
+        setActivity((current) => (current === 'previewing' ? null : current))
       } else if (message.kind === 'dev') {
         setLogs((previous) => (previous + message.text).slice(-48_000))
+      } else if (message.kind === 'preview') {
+        if (message.state === 'starting') {
+          setActivity('previewing')
+          setError('')
+        } else {
+          setActivity((current) => (current === 'previewing' ? null : current))
+          if (message.state === 'failed') {
+            setError(message.detail)
+          } else {
+            setStatus('preview-ready')
+          }
+        }
       }
     })
     return () => {

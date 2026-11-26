@@ -95,6 +95,12 @@ export function LanWorkspaceConnectionFields({
         )}
       </p>
       <DialogDisclosure label={t('lanWorkspace.previewSettings', 'Mac preview settings')}>
+        <p className="mb-3 text-xs text-muted-foreground">
+          {t(
+            'lanWorkspace.smbPreviewNote',
+            'After the first save from a remote Mac, Orca runs this command locally and opens the preview. Clear either field to turn off automatic preview.'
+          )}
+        </p>
         <div className="grid gap-3 sm:grid-cols-2">
           <ConnectionField
             {...bindings}

@@ -12,6 +12,7 @@ import {
   remoteToolPath
 } from './lan-workspace-mount.mjs'
 import { LanWorkspacePty } from './lan-workspace-pty.mjs'
+import { LanSmbMount } from './lan-smb-mount.mjs'
 
 const { Client } = createRequire(import.meta.url)('ssh2')
 
@@ -114,15 +115,17 @@ export class LanSession {
   #ssh = new Client()
   #mount
   #mountChannel
+  #smb
   #closed = false
   #authenticated = false
   #mounted = false
   terminalId = randomUUID()
   terminal = new LanWorkspacePty()
 
-  constructor({ verifyHost, onDisconnect = () => {} }) {
+  constructor({ verifyHost, onDisconnect = () => {}, onRemoteSave = () => {} }) {
     this.verifyHost = verifyHost
     this.onDisconnect = onDisconnect
+    this.onRemoteSave = onRemoteSave
     this.#ssh.on('error', () => {})
     this.#ssh.once('close', () => {
       if (!this.#closed) {
@@ -167,6 +170,30 @@ export class LanSession {
     this.#authenticated = true
     if (projectDirectory === null) {
       return { path: null, terminalId: this.terminalId }
+    }
+
+    const platform = await runRemote(this.#ssh, `printf 'ORCA_PLATFORM=%s\\n' "$(uname -s)"`)
+    if (this.#closed) {
+      throw new Error('SSH connection closed.')
+    }
+    if (platform.code === 0 && platform.stdout.split('\n').includes('ORCA_PLATFORM=Darwin')) {
+      this.#smb = new LanSmbMount(
+        this.#ssh,
+        (command) => runRemote(this.#ssh, command),
+        this.onRemoteSave,
+        () => {
+          if (this.#mounted && !this.#closed) {
+            void this.close()
+            this.onDisconnect()
+          }
+        }
+      )
+      const path = await this.#smb.open(projectDirectory)
+      if (this.#closed) {
+        throw new Error('SSH connection closed.')
+      }
+      this.#mounted = true
+      return { path, terminalId: this.terminalId }
     }
 
     const mount = readRemoteMount(await runRemote(this.#ssh, prepareRemoteMount))
@@ -214,10 +241,11 @@ export class LanSession {
   }
 
   async openTerminal(input, emit) {
-    if (!this.#authenticated || this.#closed || (this.#mount && !this.#mounted)) {
+    if (!this.#authenticated || this.#closed || ((this.#mount || this.#smb) && !this.#mounted)) {
       throw new Error('Connect to the remote host first.')
     }
-    const directory = this.#mount?.shellDirectory ?? `${remoteToolPath}\ncd -- "$HOME"`
+    const directory =
+      this.#smb?.shellDirectory ?? this.#mount?.shellDirectory ?? `${remoteToolPath}\ncd -- "$HOME"`
     await this.terminal.open(this.#ssh, `${directory} && exec "\${SHELL:-/bin/sh}" -i`, input, emit)
   }
 
@@ -229,6 +257,7 @@ export class LanSession {
     this.#authenticated = false
     this.#mounted = false
     this.terminal.close()
+    await this.#smb?.close()
     if (this.#mount) {
       await runRemote(this.#ssh, this.#mount.cleanup, { timeout: 3_000 }).catch(() => {})
     }

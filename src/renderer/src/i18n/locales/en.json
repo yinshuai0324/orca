@@ -2226,7 +2226,13 @@
     "fsExtensionUnavailable": "The remote Mac could not load the macFUSE file system extension. Enable it for the SSH user in System Settings, then retry mounting. You can also open the terminal only.",
     "connectingTerminal": "Connecting over SSH…",
     "homeTerminal": "Connected to the remote home directory.",
-    "terminalOnly": "Open terminal only"
+    "terminalOnly": "Open terminal only",
+    "smbPreviewNote": "After the first save from a remote Mac, Orca runs this command locally and opens the preview. Clear either field to turn off automatic preview.",
+    "smbHelper": "Orca could not prepare the local SMB helper.",
+    "smbForward": "The remote SSH server did not allow SMB reverse forwarding.",
+    "smbForwardBind": "The remote SSH server did not restrict SMB forwarding to its loopback address.",
+    "missingMountSmbfs": "The remote Mac could not find its built-in mount_smbfs command.",
+    "smbMount": "SSH connected, but the remote Mac could not mount the project over SMB."
   },
   "menu": {
     "checkForUpdates": "Check for Updates...",

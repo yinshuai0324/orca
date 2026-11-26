@@ -32,6 +32,8 @@ export type LanWorkspaceMessage =
   | { kind: 'terminal-data'; terminalId: string; data: string }
   | { kind: 'terminal-exit'; terminalId: string; exitCode: number | null }
   | { kind: 'dev'; text: string }
+  | { kind: 'preview'; state: 'starting' | 'ready' }
+  | { kind: 'preview'; state: 'failed'; detail: string }
   | { kind: 'disconnected' }
 
 export type LanWorkspaceApi = {

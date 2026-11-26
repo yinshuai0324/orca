@@ -10,6 +10,38 @@ export function translateLanWorkspacePrerequisiteError(error: unknown): unknown 
   }
 
   switch (error.reason) {
+    case 'smb-helper':
+      return new Error(
+        translateMain('lanWorkspace.smbHelper', 'Orca could not prepare the local SMB helper.')
+      )
+    case 'smb-forward':
+      return new Error(
+        translateMain(
+          'lanWorkspace.smbForward',
+          'The remote SSH server did not allow SMB reverse forwarding.'
+        )
+      )
+    case 'smb-forward-bind':
+      return new Error(
+        translateMain(
+          'lanWorkspace.smbForwardBind',
+          'The remote SSH server did not restrict SMB forwarding to its loopback address.'
+        )
+      )
+    case 'missing-mount-smbfs':
+      return new Error(
+        translateMain(
+          'lanWorkspace.missingMountSmbfs',
+          'The remote Mac could not find its built-in mount_smbfs command.'
+        )
+      )
+    case 'smb-mount':
+      return new Error(
+        translateMain(
+          'lanWorkspace.smbMount',
+          'SSH connected, but the remote Mac could not mount the project over SMB.'
+        )
+      )
     case 'missing-sshfs':
       return new Error(
         translateMain(

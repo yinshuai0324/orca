@@ -38,6 +38,30 @@ export function createLanWorkspaceController({ verifyHost, openPreview, emit }) 
       }
       const connection = new LanSession({
         verifyHost,
+        onRemoteSave: () => {
+          if (
+            session !== connection ||
+            previewing ||
+            preview ||
+            !previewSettings?.startCommand ||
+            !previewSettings.previewUrl
+          ) {
+            return
+          }
+          emit({ kind: 'preview', state: 'starting' })
+          void startPreview().then(
+            () => {
+              if (session === connection) {
+                emit({ kind: 'preview', state: 'ready' })
+              }
+            },
+            (error) => {
+              if (session === connection) {
+                emit({ kind: 'preview', state: 'failed', detail: error.message })
+              }
+            }
+          )
+        },
         onDisconnect: () => {
           if (session === connection) {
             void disconnect()
