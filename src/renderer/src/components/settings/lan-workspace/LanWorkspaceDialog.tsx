@@ -115,7 +115,8 @@ export default function LanWorkspaceDialog(): React.JSX.Element | null {
           setStatus('disconnected')
           break
         case 'previewing':
-          setActivity('previewing')
+          // The progress broadcast can arrive after a fast preview has already completed.
+          setActivity((current) => (current === 'running' ? 'previewing' : current))
           break
         case 'assistant':
           appendMessage(message.agent, message.text)
