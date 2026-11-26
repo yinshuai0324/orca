@@ -1,3 +1,4 @@
+// @protected-copy
 import type { ComponentProps } from 'react'
 import { FolderOpen } from 'lucide-react'
 import type { LanWorkspaceProject } from '../../../../../shared/remote-runtime/lan-workspace/lan-workspace-api'

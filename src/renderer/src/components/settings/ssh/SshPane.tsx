@@ -90,7 +90,7 @@ export function SshPane({ addTargetIntentSignal }: SshPaneProps): React.JSX.Elem
   const loadTargets = useCallback(
     async (opts?: { signal?: AbortSignal }) => {
       try {
-        const result = (await window.api.ssh.listTargets()) as SshTarget[]
+        const result = await window.api.ssh.listTargets({ includeSharedLocalProjects: true })
         if (opts?.signal?.aborted || !mountedRef.current) {
           return
         }
@@ -138,10 +138,18 @@ export function SshPane({ addTargetIntentSignal }: SshPaneProps): React.JSX.Elem
     if (saving) {
       return
     }
+    const saveSharedHost = window.api.lanWorkspace?.saveHost
+    if (form.sharedLocalProject && !saveSharedHost) {
+      toast.error(t('lanWorkspace.desktopOnly', 'Shared-folder hosts require the Mac desktop app.'))
+      return
+    }
     setSaving(true)
 
     try {
-      if (editingId) {
+      if (form.sharedLocalProject && saveSharedHost) {
+        const { target, updates } = savePayload.payload
+        await saveSharedHost(editingId ? { id: editingId, updates } : { target })
+      } else if (editingId) {
         await window.api.ssh.updateTarget({ id: editingId, updates: savePayload.payload.updates })
       } else {
         const result = await window.api.ssh.addTarget({ target: savePayload.payload.target })
@@ -234,6 +242,12 @@ export function SshPane({ addTargetIntentSignal }: SshPaneProps): React.JSX.Elem
   }
 
   const handleConnect = async (targetId: string): Promise<void> => {
+    const target = targets.find((candidate) => candidate.id === targetId)
+    if (target?.sharedLocalProject) {
+      openModal('lan-workspace', { targetId, targetLabel: target.label })
+      recordFeatureInteraction('ssh')
+      return
+    }
     try {
       await window.api.ssh.connect({ targetId })
       recordFeatureInteraction('ssh')
@@ -319,17 +333,6 @@ export function SshPane({ addTargetIntentSignal }: SshPaneProps): React.JSX.Elem
                 onDisconnect={handleDisconnect}
                 onTest={testOne}
                 onEdit={handleEdit}
-                onMountLocalProject={
-                  lanWorkspaceAvailable
-                    ? (target) =>
-                        openModal('lan-workspace', {
-                          targetId: target.id,
-                          targetLabel: target.label,
-                          host: target.host,
-                          username: target.username
-                        })
-                    : undefined
-                }
                 onRemove={(target) => requestRemoveTarget(target, requestRemove)}
                 onServerChanged={() => void loadTargets()}
               />
@@ -356,6 +359,7 @@ export function SshPane({ addTargetIntentSignal }: SshPaneProps): React.JSX.Elem
         editingId={editingId}
         form={form}
         saving={saving}
+        allowSharedLocalProject={lanWorkspaceAvailable}
         onFormChange={setForm}
         onSave={() => void handleSave()}
         onOpenChange={(nextOpen) => {

@@ -3,8 +3,10 @@ import type {
   SshTarget
 } from '../../../../shared/remote-runtime/ssh/ssh-types'
 import { isRemoteCliControlAllowed } from '../../../../shared/remote-runtime/ssh/ssh-remote-cli-control'
+import type { LanWorkspaceProject } from '../../../../shared/remote-runtime/lan-workspace/lan-workspace-api'
 
 export type EditingTarget = {
+  sharedLocalProject?: LanWorkspaceProject
   label: string
   configHost: string
   host: string
@@ -41,6 +43,7 @@ export function getEditingTargetForSshTarget(target: SshTarget): EditingTarget {
   const configHost = target.configHost && target.configHost !== target.host ? target.configHost : ''
   return {
     label: target.label,
+    ...(target.sharedLocalProject ? { sharedLocalProject: target.sharedLocalProject } : {}),
     configHost,
     host: target.host,
     port: String(target.port),
@@ -161,6 +164,9 @@ export function hasAdvancedConnectionValues(form: EditingTarget): boolean {
 
 export function isSshTargetFormDirty(current: EditingTarget, baseline: EditingTarget): boolean {
   return (
+    current.sharedLocalProject?.directory !== baseline.sharedLocalProject?.directory ||
+    current.sharedLocalProject?.startCommand !== baseline.sharedLocalProject?.startCommand ||
+    current.sharedLocalProject?.previewUrl !== baseline.sharedLocalProject?.previewUrl ||
     current.label !== baseline.label ||
     current.configHost !== baseline.configHost ||
     current.host !== baseline.host ||

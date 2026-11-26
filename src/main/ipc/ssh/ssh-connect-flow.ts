@@ -60,6 +60,9 @@ export async function connectTarget(
   options: { automatic?: boolean; quiet?: boolean } = {}
 ): Promise<SshConnectionState> {
   await awaitSshStartupReady()
+  if (getSshTargetRegistryStore()?.getTarget(targetId)?.sharedLocalProject) {
+    throw new Error('Connect to a shared-folder host from Settings › SSH Hosts.')
+  }
   const e2eProbePath = process.env.ORCA_E2E_FORBID_LOCAL_SSH_CONNECT_PROBE
   if (e2eProbePath) {
     appendFileSync(e2eProbePath, `${JSON.stringify(targetId)}\n`)
@@ -182,6 +185,9 @@ async function doConnect(
   const target = getSshTargetRegistryStore()!.getTarget(targetId)
   if (!target) {
     throw new Error(`SSH target "${targetId}" not found`)
+  }
+  if (target.sharedLocalProject) {
+    throw new Error('Connect to a shared-folder host from Settings › SSH Hosts.')
   }
   // Read after the lifecycle wait: a Stop or Forget this connect queued behind wrote the hold.
   if (automatic && (await isManagedServerRemovalHeld(target))) {

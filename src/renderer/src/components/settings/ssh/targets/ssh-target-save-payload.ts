@@ -38,6 +38,13 @@ export function buildSshTargetSavePayload(form: EditingTarget): SshTargetSavePay
       )
     }
   }
+  const project = form.sharedLocalProject
+  if (project && !project.directory.trim()) {
+    return {
+      ok: false,
+      error: translate('lanWorkspace.chooseProject', 'Choose a project folder on this Mac.')
+    }
+  }
 
   const identityFile = form.identityFile.trim() || undefined
   const proxyCommand = form.proxyCommand.trim() || undefined
@@ -52,6 +59,7 @@ export function buildSshTargetSavePayload(form: EditingTarget): SshTargetSavePay
     host,
     port,
     username,
+    ...(project ? { sharedLocalProject: project } : {}),
     ...(form.gssapiAuthentication ? { gssapiAuthentication: true } : {}),
     ...(identityFile ? { identityFile } : {}),
     ...(proxyCommand ? { proxyCommand } : {}),

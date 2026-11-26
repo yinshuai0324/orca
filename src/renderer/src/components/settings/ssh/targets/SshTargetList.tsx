@@ -29,7 +29,6 @@ type SshTargetListProps = {
   onDisconnect: (targetId: string) => void | Promise<void>
   onTest: (targetId: string) => void | Promise<void>
   onEdit: (target: SshTarget) => void
-  onMountLocalProject?: (target: SshTarget) => void
   onRemove: (target: SshTarget) => void
   onServerChanged: () => void
 }
@@ -71,7 +70,6 @@ export function SshTargetList({
   onDisconnect,
   onTest,
   onEdit,
-  onMountLocalProject,
   onRemove,
   onServerChanged
 }: SshTargetListProps): React.JSX.Element {
@@ -160,7 +158,6 @@ export function SshTargetList({
                     onDisconnect={onDisconnect}
                     onTest={onTest}
                     onEdit={onEdit}
-                    onMountLocalProject={onMountLocalProject}
                     onRemove={() => onRemove(target)}
                     onServerChanged={onServerChanged}
                   />

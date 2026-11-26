@@ -1,6 +1,9 @@
+import type { SshTarget, SshTargetCreateInput, SshTargetUpdateInput } from '../ssh/ssh-types'
+
 export const LAN_WORKSPACE_CHANNELS = {
   available: 'lan-workspace:available',
   chooseDirectory: 'lan-workspace:choose-directory',
+  saveHost: 'lan-workspace:save-host',
   connect: 'lan-workspace:connect',
   openTerminal: 'lan-workspace:open-terminal',
   terminalWrite: 'lan-workspace:terminal-write',
@@ -11,7 +14,7 @@ export const LAN_WORKSPACE_CHANNELS = {
   message: 'lan-workspace:message'
 } as const
 
-export type LanWorkspaceSessionInfo = { path: string | null; terminalId: string }
+export type LanWorkspaceSessionInfo = { path: string; terminalId: string }
 
 export type LanWorkspaceTerminalTarget = { terminalId: string }
 
@@ -23,10 +26,15 @@ export type LanWorkspaceProject = {
   previewUrl: string
 }
 
-export type LanWorkspaceConnectInput = LanWorkspaceProject & {
-  targetId: string
-  mode: 'mount' | 'terminal'
+export const DEFAULT_LAN_WORKSPACE_PROJECT: LanWorkspaceProject = {
+  directory: '',
+  startCommand: 'npm run dev',
+  previewUrl: 'http://127.0.0.1:5173/'
 }
+
+export type LanWorkspaceSaveHostInput =
+  | { target: SshTargetCreateInput }
+  | { id: string; updates: SshTargetUpdateInput }
 
 export type LanWorkspaceMessage =
   | { kind: 'terminal-data'; terminalId: string; data: string }
@@ -39,7 +47,8 @@ export type LanWorkspaceMessage =
 export type LanWorkspaceApi = {
   available(): Promise<boolean>
   chooseDirectory(): Promise<string | null>
-  connect(input: LanWorkspaceConnectInput): Promise<LanWorkspaceSessionInfo>
+  saveHost(input: LanWorkspaceSaveHostInput): Promise<SshTarget>
+  connect(input: { targetId: string }): Promise<LanWorkspaceSessionInfo>
   openTerminal(input: LanWorkspaceTerminalSize): Promise<void>
   terminalWrite(input: LanWorkspaceTerminalTarget & { data: string }): void
   terminalResize(input: LanWorkspaceTerminalSize): void

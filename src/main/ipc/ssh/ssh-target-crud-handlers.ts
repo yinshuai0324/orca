@@ -33,6 +33,8 @@ import {
   setDesktopBrowserBridgeHostStopped
 } from '../browser/desktop-browser-bridge-reconcile'
 import { isRemoteCliControlAllowed } from '../../../shared/remote-runtime/ssh/ssh-remote-cli-control'
+import { isAbsolute } from 'node:path'
+import type { LanWorkspaceSaveHostInput } from '../../../shared/remote-runtime/lan-workspace/lan-workspace-api'
 
 // Add/import can re-adopt orphaned workspaces; report them so the renderer refreshes repo ownership.
 function takeRepoReadoptions(): SshRepoReadoption[] {
@@ -119,6 +121,9 @@ export function assertNotManagedServerHost(targetId: string): void {
 }
 
 function addSshTarget(input: SshTargetCreateInput): SshTargetAddResult {
+  if (input.sharedLocalProject) {
+    throw new Error('Add shared-folder hosts in the desktop SSH Hosts settings.')
+  }
   const target = getSshTargetRegistryStore()!.addTarget(omitRendererSshTargetGeneration(input))
   const repoReadoptions = takeRepoReadoptions()
   return { target, repoReadoptions }
@@ -127,6 +132,9 @@ function addSshTarget(input: SshTargetCreateInput): SshTargetAddResult {
 function updateSshTarget(id: string, updates: SshTargetUpdateInput): SshTarget | null {
   assertNotRuntimeOwned(id, 'edited')
   const before = getSshTargetRegistryStore()!.getTarget(id)
+  if (before?.sharedLocalProject || updates.sharedLocalProject) {
+    throw new Error('Edit shared-folder hosts in the desktop SSH Hosts settings.')
+  }
   // The fence and generation are stripped, so a managed host keeps its server binding.
   const updated = getSshTargetRegistryStore()!.updateTarget(
     id,
@@ -153,6 +161,45 @@ function updateSshTarget(id: string, updates: SshTargetUpdateInput): SshTarget |
   return updated
 }
 
+export function saveSharedLocalSshHost(input: LanWorkspaceSaveHostInput): SshTarget {
+  const registry = getSshTargetRegistryStore()!
+  const updating = 'id' in input
+  const details = omitRendererSshTargetGeneration(updating ? input.updates : input.target)
+  const project = details.sharedLocalProject
+  if (
+    !project ||
+    typeof project.directory !== 'string' ||
+    !isAbsolute(project.directory.trim()) ||
+    typeof project.startCommand !== 'string' ||
+    typeof project.previewUrl !== 'string'
+  ) {
+    throw new Error('Choose a project folder on this Mac.')
+  }
+  const sharedLocalProject = {
+    directory: project.directory.trim(),
+    startCommand: project.startCommand.trim(),
+    previewUrl: project.previewUrl.trim()
+  }
+  const fields = {
+    sharedLocalProject,
+    source: 'manual' as const,
+    owner: undefined,
+    reconnectOnLaunch: false,
+    allowRemoteCliControl: false
+  }
+  if (updating) {
+    if (!registry.getTarget(input.id)?.sharedLocalProject) {
+      throw new Error('The shared-folder host no longer exists.')
+    }
+    const updated = registry.updateTarget(input.id, { ...details, ...fields })
+    if (!updated) {
+      throw new Error('The shared-folder host no longer exists.')
+    }
+    return updated
+  }
+  return registry.addTarget({ ...omitRendererSshTargetGeneration(input.target), ...fields })
+}
+
 async function removeSshTarget(id: string): Promise<void> {
   assertNotRuntimeOwned(id, 'removed')
   assertNotManagedServerHost(id)
@@ -162,10 +209,19 @@ async function removeSshTarget(id: string): Promise<void> {
 
 export function registerSshTargetCrudHandlers(handle: RegisterSshRequest): void {
   // Apply identical mutation rules to paired RPC and local Settings.
-  setSshTargetMutations({ add: addSshTarget, update: updateSshTarget, remove: removeSshTarget })
+  setSshTargetMutations({
+    add: addSshTarget,
+    update: updateSshTarget,
+    remove: async (targetId) => {
+      if (getSshTargetRegistryStore()?.getTarget(targetId)?.sharedLocalProject) {
+        throw new Error('Remove shared-folder hosts in the desktop SSH Hosts settings.')
+      }
+      await removeSshTarget(targetId)
+    }
+  })
 
-  handle('ssh:listTargets', () => {
-    return getSshTargetRegistryStore()!.listTargets()
+  handle('ssh:listTargets', (args?: { includeSharedLocalProjects?: boolean }) => {
+    return getSshTargetRegistryStore()!.listTargets(args?.includeSharedLocalProjects === true)
   })
 
   handle('ssh:listRemovedTargetLabels', () => {

@@ -35,8 +35,14 @@ export class SshConnectionStore {
     private routeResolvers?: SshRouteResolvers
   ) {}
 
-  listTargets(): SshTarget[] {
-    return this.store.getSshTargets().filter((target) => !isRuntimeOwnedSshTarget(target))
+  listTargets(includeSharedLocalProjects = false): SshTarget[] {
+    return this.store
+      .getSshTargets()
+      .filter(
+        (target) =>
+          !isRuntimeOwnedSshTarget(target) &&
+          (includeSharedLocalProjects || !target.sharedLocalProject)
+      )
   }
 
   /** Retain removed-target labels so pinned orphan workspaces can still show friendly host names. */
@@ -67,10 +73,14 @@ export class SshConnectionStore {
       generation: this.store.allocateSshTargetGeneration()
     }
     // Explicit re-add reclaims the alias from passive-sync tombstones.
-    this.reclaimAlias(full.configHost ?? full.label)
+    if (!full.sharedLocalProject) {
+      this.reclaimAlias(full.configHost ?? full.label)
+    }
     this.store.addSshTarget(full)
     // Readopt orphaned workspaces with exact migrations so clients prune only proven stale rows.
-    this.lastRepoReadoptions = readoptOrphanedWorkspacesForTarget(this.store, full)
+    this.lastRepoReadoptions = full.sharedLocalProject
+      ? []
+      : readoptOrphanedWorkspacesForTarget(this.store, full)
     return full
   }
 
@@ -123,7 +133,7 @@ export class SshConnectionStore {
       id,
       resetsRuntime ? { ...updates, remoteRuntimeResolution: undefined } : updates
     )
-    if (updated) {
+    if (updated && !updated.sharedLocalProject) {
       // Explicit edits also reclaim tombstoned aliases.
       this.reclaimAlias(updated.configHost ?? updated.label)
     }
@@ -132,7 +142,7 @@ export class SshConnectionStore {
 
   removeTarget(id: string): void {
     const target = this.store.getSshTarget(id)
-    if (target && !isRuntimeOwnedSshTarget(target)) {
+    if (target && !target.sharedLocalProject && !isRuntimeOwnedSshTarget(target)) {
       const alias = target.configHost ?? target.label
       if (alias) {
         // Suppress passive resurrection while keeping the alias available for explicit picker re-add.
@@ -255,6 +265,9 @@ export class SshConnectionStore {
     const syncableByAlias = new Map<string, SshTarget>()
     const manualAliases = new Set<string>()
     for (const existing of this.store.getSshTargets()) {
+      if (existing.sharedLocalProject) {
+        continue
+      }
       const alias = normalizeSshConfigAlias(existing.configHost ?? existing.label)
       if (
         existing.source === 'manual' ||

@@ -3,12 +3,7 @@ import { realpath, stat } from 'node:fs/promises'
 import { isAbsolute } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import { serveProjectFiles } from './project-sftp.mjs'
-import {
-  mountFailureError,
-  prepareRemoteMount,
-  readRemoteMount,
-  remoteToolPath
-} from './lan-workspace-mount.mjs'
+import { mountFailureError, prepareRemoteMount, readRemoteMount } from './lan-workspace-mount.mjs'
 import { LanWorkspacePty } from './lan-workspace-pty.mjs'
 import { LanSmbMount } from './lan-smb-mount.mjs'
 
@@ -119,8 +114,12 @@ export class LanSession {
     this.onRemoteSave = onRemoteSave
   }
 
-  async open(targetId, projectDirectory) {
-    const { client, release } = await this.openSshTransport(targetId, this.#abort.signal)
+  async open(targetId, projectDirectory, savedDirectory) {
+    const { client, release } = await this.openSshTransport(
+      targetId,
+      this.#abort.signal,
+      savedDirectory
+    )
     if (this.#closed) {
       await release?.()
       throw new Error('SSH connection closed.')
@@ -128,10 +127,6 @@ export class LanSession {
     this.#ssh = client
     this.#releaseTransport = release
     client.once('close', this.#transportClosed)
-    if (projectDirectory === null) {
-      return { path: null, terminalId: this.terminalId }
-    }
-
     const platform = await runRemote(this.#ssh, `printf 'ORCA_PLATFORM=%s\\n' "$(uname -s)"`)
     if (this.#closed) {
       throw new Error('SSH connection closed.')
@@ -201,11 +196,10 @@ export class LanSession {
   }
 
   async openTerminal(input, emit) {
-    if (!this.#ssh || this.#closed || ((this.#mount || this.#smb) && !this.#mounted)) {
-      throw new Error('Connect to the remote host first.')
+    if (!this.#ssh || this.#closed || !this.#mounted) {
+      throw new Error('Mount the shared project first.')
     }
-    const directory =
-      this.#smb?.shellDirectory ?? this.#mount?.shellDirectory ?? `${remoteToolPath}\ncd -- "$HOME"`
+    const directory = this.#smb?.shellDirectory ?? this.#mount.shellDirectory
     await this.terminal.open(this.#ssh, `${directory} && exec "\${SHELL:-/bin/sh}" -i`, input, emit)
   }
 

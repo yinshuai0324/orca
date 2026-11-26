@@ -19,14 +19,14 @@ export function createLanWorkspaceController({ openSshTransport, openPreview, em
     await current?.close()
   }
 
-  async function connect(input) {
+  async function connect({ targetId, project }) {
     if (connecting || session) {
       throw new Error('Disconnect the current workspace first.')
     }
     connecting = true
     const attempt = generation
     try {
-      const directory = input.mode === 'terminal' ? null : await validateProject(input)
+      const directory = await validateProject(project)
       if (generation !== attempt) {
         throw new Error('SSH connection closed.')
       }
@@ -64,17 +64,11 @@ export function createLanWorkspaceController({ openSshTransport, openPreview, em
         }
       })
       session = connection
-      const mount = await connection.open(input.targetId, directory)
+      const mount = await connection.open(targetId, directory, project.directory)
       if (session !== connection) {
         throw new Error('SSH connection closed.')
       }
-      if (directory !== null) {
-        previewSettings = {
-          directory,
-          startCommand: input.startCommand,
-          previewUrl: input.previewUrl
-        }
-      }
+      previewSettings = { ...project, directory }
       return mount
     } catch (error) {
       await disconnect()

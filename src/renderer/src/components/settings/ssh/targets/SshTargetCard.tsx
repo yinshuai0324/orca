@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react'
-import { FolderOpen, Loader2, MoreHorizontal, Pencil, PlugZap, Trash2 } from 'lucide-react'
+import { Loader2, MoreHorizontal, Pencil, PlugZap, Trash2 } from 'lucide-react'
 import type {
   SshConnectionState,
   SshConnectionStatus,
@@ -84,7 +84,6 @@ type SshTargetCardProps = {
   onDisconnect: (targetId: string) => void | Promise<void>
   onTest: (targetId: string) => void | Promise<void>
   onEdit: (target: SshTarget) => void
-  onMountLocalProject?: (target: SshTarget) => void
   onRemove: (targetId: string) => void
   onServerChanged?: () => void
 }
@@ -100,7 +99,6 @@ export function SshTargetCard({
   onDisconnect,
   onTest,
   onEdit,
-  onMountLocalProject,
   onRemove,
   onServerChanged
 }: SshTargetCardProps): React.JSX.Element {
@@ -226,6 +224,11 @@ export function SshTargetCard({
       <div className="min-w-0 flex-1">
         <div className="flex min-w-0 items-baseline gap-2">
           <span className="truncate text-sm font-medium">{target.label}</span>
+          {target.sharedLocalProject ? (
+            <Badge variant="hostContext" className="self-center">
+              {t('lanWorkspace.sharedFolderBadge', 'Shared folder')}
+            </Badge>
+          ) : null}
           {servedByOrcaServer ? (
             <Badge variant="hostContext" className="self-center">
               {t('auto.components.settings.SshTargetCard.orcaServer', 'Orca server')}
@@ -269,15 +272,6 @@ export function SshTargetCard({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="min-w-44">
-            {onMountLocalProject ? (
-              <DropdownMenuItem
-                disabled={testing || hasActionInFlight || isConnectingSshStatus(status)}
-                onSelect={() => onMountLocalProject(target)}
-              >
-                <FolderOpen />
-                {t('lanWorkspace.mountLocalProject', 'Mount local project')}…
-              </DropdownMenuItem>
-            ) : null}
             <DropdownMenuItem
               disabled={
                 testing ||
@@ -294,11 +288,13 @@ export function SshTargetCard({
               <Pencil />
               {t('auto.components.settings.SshTargetCard.edit', 'Edit…')}
             </DropdownMenuItem>
-            <SshTargetServerMenuItems
-              target={target}
-              state={state}
-              onOpenDialog={setServerDialog}
-            />
+            {!target.sharedLocalProject ? (
+              <SshTargetServerMenuItems
+                target={target}
+                state={state}
+                onOpenDialog={setServerDialog}
+              />
+            ) : null}
             <DropdownMenuSeparator />
             <DropdownMenuItem
               variant="destructive"

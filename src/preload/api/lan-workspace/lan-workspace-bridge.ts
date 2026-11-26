@@ -10,6 +10,7 @@ const channels = LAN_WORKSPACE_CHANNELS
 export const lanWorkspaceApi: LanWorkspaceApi = {
   available: () => ipcRenderer.invoke(channels.available),
   chooseDirectory: () => ipcRenderer.invoke(channels.chooseDirectory),
+  saveHost: (input) => ipcRenderer.invoke(channels.saveHost, input),
   connect: (input) => ipcRenderer.invoke(channels.connect, input),
   openTerminal: (input) => ipcRenderer.invoke(channels.openTerminal, input),
   terminalWrite: (input) => ipcRenderer.send(channels.terminalWrite, input),

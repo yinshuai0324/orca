@@ -11,6 +11,7 @@ import {
 } from '../../../ui/dialog'
 import { Input } from '../../../ui/input'
 import { Label } from '../../../ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../ui/select'
 import { SshHostAdvancedFields } from '../../../ssh-host-form/SshHostAdvancedFields'
 import {
   applyParsedSshHostInput,
@@ -20,12 +21,18 @@ import {
 } from '../../../ssh-host-form/ssh-target-draft'
 import { useTranslate } from '@/i18n/use-translate'
 import { preventOutsideDismissWhenDirty } from '@/lib/overlay-interaction/outside-dismiss-guard'
+import {
+  DEFAULT_LAN_WORKSPACE_PROJECT,
+  type LanWorkspaceProject
+} from '../../../../../../shared/remote-runtime/lan-workspace/lan-workspace-api'
+import { LanWorkspaceConnectionFields } from '../../lan-workspace/LanWorkspaceConnectionFields'
 
 type SshTargetFormProps = {
   open: boolean
   editingId: string | null
   form: EditingTarget
   saving: boolean
+  allowSharedLocalProject?: boolean
   onFormChange: (updater: (prev: EditingTarget) => EditingTarget) => void
   onSave: () => void
   onOpenChange: (open: boolean) => void
@@ -47,11 +54,20 @@ export function SshTargetForm({
   editingId,
   form,
   saving,
+  allowSharedLocalProject,
   onFormChange,
   onSave,
   onOpenChange
 }: SshTargetFormProps): React.JSX.Element {
   const t = useTranslate()
+  const project = form.sharedLocalProject
+  const setProjectField = (field: keyof LanWorkspaceProject, value: string): void => {
+    onFormChange((previous) =>
+      previous.sharedLocalProject
+        ? { ...previous, sharedLocalProject: { ...previous.sharedLocalProject, [field]: value } }
+        : previous
+    )
+  }
   // Reveal custom advanced values per open/edit session; the mounted form must not retain cancelled disclosure state.
   const hasAdvancedConnectionFields = hasAdvancedConnectionValues(form)
   const [advancedOpen, setAdvancedOpen] = useState(hasAdvancedConnectionFields)
@@ -94,6 +110,7 @@ export function SshTargetForm({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
+        surface={project ? 'security' : undefined}
         className="flex max-h-[calc(100vh-3rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-xl"
         onPointerDownOutside={guardOutsideDismiss}
         onInteractOutside={guardOutsideDismiss}
@@ -148,6 +165,34 @@ export function SshTargetForm({
 
           <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4 scrollbar-sleek">
             <div className="grid grid-cols-2 gap-3">
+              {allowSharedLocalProject && (!isEditing || project) ? (
+                <div className="col-span-2 space-y-1.5">
+                  <Label htmlFor="ssh-target-type">{t('lanWorkspace.hostType', 'Host type')}</Label>
+                  <Select
+                    value={project ? 'shared-folder' : 'ssh'}
+                    disabled={isEditing || saving}
+                    onValueChange={(value) =>
+                      onFormChange((previous) => ({
+                        ...previous,
+                        sharedLocalProject:
+                          value === 'shared-folder' ? DEFAULT_LAN_WORKSPACE_PROJECT : undefined
+                      }))
+                    }
+                  >
+                    <SelectTrigger id="ssh-target-type" className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ssh">
+                        {t('lanWorkspace.standardHost', 'SSH host')}
+                      </SelectItem>
+                      <SelectItem value="shared-folder">
+                        {t('lanWorkspace.sharedFolderHost', 'SSH with a shared Mac folder')}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : null}
               <div className="space-y-1.5">
                 <Label htmlFor="ssh-target-label">
                   {t('auto.components.settings.SshTargetForm.298de87a88', 'Label')}
@@ -221,9 +266,28 @@ export function SshTargetForm({
                   )}
                 </p>
               </div>
+              {project ? (
+                <div className="col-span-2">
+                  <LanWorkspaceConnectionFields
+                    draft={project}
+                    busy={saving}
+                    onChange={setProjectField}
+                    onBrowse={() => {
+                      void window.api.lanWorkspace
+                        ?.chooseDirectory()
+                        .then((path) => {
+                          if (path) {
+                            setProjectField('directory', path)
+                          }
+                        })
+                        .catch(() => {})
+                    }}
+                  />
+                </div>
+              ) : null}
               <SshHostAdvancedFields
                 offerProxyConnectionReuse
-                offerReconnectOnLaunch
+                offerReconnectOnLaunch={!project}
                 open={advancedOpen}
                 onOpenChange={setAdvancedOpen}
                 form={form}

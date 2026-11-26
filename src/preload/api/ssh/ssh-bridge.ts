@@ -21,7 +21,8 @@ import type { FilesystemPathFlavor } from '../../../shared/file-access/filesyste
 import type { PreloadApi } from '../../api-types'
 
 export const sshApi = {
-  listTargets: (): Promise<SshTarget[]> => ipcRenderer.invoke('ssh:listTargets'),
+  listTargets: (options?: { includeSharedLocalProjects?: boolean }): Promise<SshTarget[]> =>
+    ipcRenderer.invoke('ssh:listTargets', options),
 
   listRemovedTargetLabels: (): Promise<Record<string, string>> =>
     ipcRenderer.invoke('ssh:listRemovedTargetLabels'),

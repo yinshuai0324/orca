@@ -13,8 +13,9 @@ import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import {
   LAN_WORKSPACE_CHANNELS,
-  type LanWorkspaceConnectInput,
   type LanWorkspaceMessage,
+  type LanWorkspaceProject,
+  type LanWorkspaceSaveHostInput,
   type LanWorkspaceSessionInfo,
   type LanWorkspaceTerminalSize,
   type LanWorkspaceApi
@@ -25,21 +26,22 @@ import { clearSshCredentialDeclined } from '../../ssh/authentication/ssh-credent
 import { SshConnection } from '../../ssh/connection/ssh-connection'
 import { getSshHostServerStatus } from '../../ssh/host-server/ssh-host-server-status'
 import { fingerprintRuntimeSshTarget } from '../../ssh/runtime-access/runtime-ssh-target-fingerprint'
-import {
-  getSshConnectionManager,
-  getSshTargetRegistryStore
-} from '../../ssh/targets/ssh-target-registry'
+import { getSshTargetRegistryStore } from '../../ssh/targets/ssh-target-registry'
 import { isRuntimeOwnedSshTarget } from '../../ssh/targets/ssh-target-runtime-ownership'
 import { isBackgroundLaunch } from '../../window/activation/foreground-activation-policy'
 import { assertSshConnectsNotFenced } from '../ssh/ssh-connect-attempt-registry'
 import { requestCredential } from '../ssh/ssh-passphrase'
 import { awaitSshStartupReady } from '../ssh/ssh-startup-ready'
+import { saveSharedLocalSshHost } from '../ssh/ssh-target-crud-handlers'
 import { awaitTargetLifecycle } from '../ssh/ssh-target-lifecycle-queue'
 import { isTrustedUIRenderer } from '../ui'
 import { translateLanWorkspacePrerequisiteError } from './lan-workspace-prerequisite-error'
 
 type LanWorkspaceController = {
-  connect(input: LanWorkspaceConnectInput): Promise<LanWorkspaceSessionInfo>
+  connect(input: {
+    targetId: string
+    project: LanWorkspaceProject
+  }): Promise<LanWorkspaceSessionInfo>
   openTerminal: LanWorkspaceApi['openTerminal']
   terminalWrite: LanWorkspaceApi['terminalWrite']
   terminalResize: LanWorkspaceApi['terminalResize']
@@ -50,23 +52,30 @@ type LanWorkspaceController = {
 
 type LanWorkspaceModule = {
   createLanWorkspaceController(options: {
-    openSshTransport(targetId: string, signal: AbortSignal): Promise<SshTransport>
+    openSshTransport(
+      targetId: string,
+      signal: AbortSignal,
+      directory: string
+    ): Promise<SshTransport>
     openPreview(url: string): Promise<void>
     emit(message: LanWorkspaceMessage): void
   }): LanWorkspaceController
 }
 
-type SshTransport = { client: Client; release?: () => Promise<void> }
+type SshTransport = { client: Client; release: () => Promise<void> }
 
-async function openSavedSshTransport(targetId: string, signal: AbortSignal): Promise<SshTransport> {
+async function openSavedSshTransport(
+  targetId: string,
+  signal: AbortSignal,
+  directory: string
+): Promise<SshTransport> {
   await awaitSshStartupReady()
   await awaitTargetLifecycle(targetId)
   signal.throwIfAborted()
   assertSshConnectsNotFenced()
-  const manager = getSshConnectionManager()
   const store = getSshTargetRegistryStore()
   const target = store?.getTarget(targetId)
-  if (!manager || !target || isRuntimeOwnedSshTarget(target)) {
+  if (!target?.sharedLocalProject || isRuntimeOwnedSshTarget(target)) {
     throw new Error(
       translateMain('lanWorkspace.savedHostMissing', 'Choose a saved SSH host in Settings.')
     )
@@ -76,33 +85,25 @@ async function openSavedSshTransport(targetId: string, signal: AbortSignal): Pro
       translateMain('lanWorkspace.hostMoving', 'Wait for the SSH host move to finish.')
     )
   }
-  const existing = manager.getConnection(targetId)
-  const borrowed =
-    existing?.getState().status === 'connected' && !existing.isDisposed() ? existing : undefined
   // A mount-only connection must stay out of workspace restore, which can provision a remote server.
-  const connection =
-    borrowed ??
-    new SshConnection(target, {
-      onStateChange: () => {},
-      onCredentialRequest: requestCredential
-    })
+  const connection = new SshConnection(target, {
+    onStateChange: () => {},
+    onCredentialRequest: requestCredential
+  })
   let releasing: Promise<void> | undefined
-  const release = borrowed
-    ? undefined
-    : () => (releasing ??= connection.disconnect({ quiet: true }))
+  const release = () => (releasing ??= connection.disconnect({ quiet: true }))
   const abort = (): void => {
-    void release?.().catch(() => {})
+    void release().catch(() => {})
   }
   signal.addEventListener('abort', abort, { once: true })
   try {
-    if (!borrowed) {
-      clearSshCredentialDeclined(targetId)
-      await connection.connect()
-    }
+    clearSshCredentialDeclined(targetId)
+    await connection.connect()
     signal.throwIfAborted()
     const currentTarget = store?.getTarget(targetId)
     if (
-      !currentTarget ||
+      !currentTarget?.sharedLocalProject ||
+      currentTarget.sharedLocalProject.directory !== directory ||
       fingerprintRuntimeSshTarget(currentTarget) !==
         fingerprintRuntimeSshTarget(connection.getTarget())
     ) {
@@ -124,7 +125,7 @@ async function openSavedSshTransport(targetId: string, signal: AbortSignal): Pro
     }
     return { client, release }
   } catch (error) {
-    await release?.().catch(() => {})
+    await release().catch(() => {})
     throw error
   } finally {
     signal.removeEventListener('abort', abort)
@@ -162,13 +163,21 @@ export function registerLanWorkspaceHandlers(): void {
     })
     return result.filePaths[0] ?? null
   })
-  ipcMain.handle(channels.connect, async (event, input: LanWorkspaceConnectInput) => {
+  ipcMain.handle(channels.saveHost, async (event, input: LanWorkspaceSaveHostInput) => {
+    requireWindow(event)
+    await awaitSshStartupReady()
+    requireWindow(event)
+    return saveSharedLocalSshHost(input)
+  })
+  ipcMain.handle(channels.connect, async (event, input: { targetId: string }) => {
     const owner = requireWindow(event)
-    if (
-      typeof input?.targetId !== 'string' ||
-      !input.targetId ||
-      (input.mode !== 'mount' && input.mode !== 'terminal')
-    ) {
+    await awaitSshStartupReady()
+    requireWindow(event)
+    const target =
+      typeof input?.targetId === 'string'
+        ? getSshTargetRegistryStore()?.getTarget(input.targetId)
+        : undefined
+    if (!target?.sharedLocalProject || isRuntimeOwnedSshTarget(target)) {
       throw new Error(
         translateMain('lanWorkspace.savedHostMissing', 'Choose a saved SSH host in Settings.')
       )
@@ -214,9 +223,11 @@ export function registerLanWorkspaceHandlers(): void {
         controller = session
       }
     }
-    return controller.connect(input).catch((error: unknown) => {
-      throw translateLanWorkspacePrerequisiteError(error)
-    })
+    return controller
+      .connect({ targetId: target.id, project: target.sharedLocalProject })
+      .catch((error: unknown) => {
+        throw translateLanWorkspacePrerequisiteError(error)
+      })
   })
   const requireController = (event: IpcMainInvokeEvent): LanWorkspaceController => {
     const controller = controllers.get(requireWindow(event))

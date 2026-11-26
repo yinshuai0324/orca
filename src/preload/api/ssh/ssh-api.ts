@@ -15,7 +15,7 @@ import type {
 import type { FilesystemPathFlavor } from '../../../shared/file-access/filesystem-path-flavor'
 
 export type SshApi = {
-  listTargets: () => Promise<SshTarget[]>
+  listTargets: (options?: { includeSharedLocalProjects?: boolean }) => Promise<SshTarget[]>
   // Last known labels keyed by removed target ID, for workspaces still pinned to them.
   listRemovedTargetLabels: () => Promise<Record<string, string>>
   addTarget: (args: { target: SshTargetCreateInput }) => Promise<SshTargetAddResult>

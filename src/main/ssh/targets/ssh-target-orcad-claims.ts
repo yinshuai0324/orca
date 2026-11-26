@@ -31,7 +31,7 @@ export class SshTargetOrcadClaims {
   constructor(private readonly store: ClaimStore) {}
 
   listTargets(): SshTarget[] {
-    return this.store.getSshTargets()
+    return this.store.getSshTargets().filter((target) => !target.sharedLocalProject)
   }
 
   /** Reuse an own claim only when a durable provisioning/SSH-access intent or migration journal explains it. */
@@ -163,7 +163,7 @@ export function resolveOrcadPreflightTarget(
   owner?: { environmentId: string; recorded: boolean }
 ): { result: OrcadMigrationPreflight } | { target: SshTarget } {
   const target = store.getSshTarget(targetId)
-  if (!target) {
+  if (!target || target.sharedLocalProject) {
     return {
       result: {
         targetId,

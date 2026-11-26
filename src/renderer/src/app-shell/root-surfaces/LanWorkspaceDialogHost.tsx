@@ -10,17 +10,9 @@ export function LanWorkspaceDialogHost(): React.JSX.Element | null {
   const open = useAppStore((state) => state.activeModal === 'lan-workspace')
   const targetId = useAppStore((state) => state.modalData.targetId)
   const targetLabel = useAppStore((state) => state.modalData.targetLabel)
-  const host = useAppStore((state) => state.modalData.host)
-  const username = useAppStore((state) => state.modalData.username)
   return open && typeof targetId === 'string' && typeof targetLabel === 'string' ? (
     <ModalBoundary boundaryId="modal.lan-workspace" resetKey>
-      <LanWorkspaceDialog
-        key={targetId}
-        targetId={targetId}
-        targetLabel={targetLabel}
-        host={typeof host === 'string' ? host : undefined}
-        username={typeof username === 'string' ? username : undefined}
-      />
+      <LanWorkspaceDialog key={targetId} targetId={targetId} targetLabel={targetLabel} />
     </ModalBoundary>
   ) : null
 }
